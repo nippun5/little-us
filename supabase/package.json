@@ -1,0 +1,1 @@
+{"name":"little-us-backend-checks","private":true,"type":"module","scripts":{"test":"node verify.mjs"},"devDependencies":{"@electric-sql/pglite":"0.5.10"}}

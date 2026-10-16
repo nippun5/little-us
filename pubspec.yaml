@@ -1,0 +1,33 @@
+name: little_us
+description: A little home for your favorite person.
+publish_to: none
+version: 1.0.0+1
+environment:
+  # sdk: '>=3.9.0 <4.0.0'
+  sdk: '>=3.6.0 <4.0.0'
+dependencies:
+  flutter:
+    sdk: flutter
+  shared_preferences: ^2.5.3
+  supabase_flutter: ^2.15.4
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/
+  fonts:
+    - family: Nunito
+      fonts:
+        - asset: assets/Nunito.ttf
+          weight: 400
+        - asset: assets/Nunito-Bold.ttf
+          weight: 700
+    - family: Lora
+      fonts:
+        - asset: assets/Lora.ttf
+          weight: 500
+        - asset: assets/Lora-SemiBold.ttf
+          weight: 600
