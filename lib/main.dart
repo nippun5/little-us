@@ -5,6 +5,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'models.dart';
 import 'store.dart';
 import 'room.dart';
+import 'room_scenes.dart';
+import 'v2_features.dart';
 
 const ink = Color(0xFF443747),
     muted = Color(0xFF817580),
@@ -322,13 +324,29 @@ class HomeShell extends StatefulWidget {
   State<HomeShell> createState() => _HomeShellState();
 }
 
-class _HomeShellState extends State<HomeShell> {
+class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) s.refresh();
+  }
+
   int tab = const int.fromEnvironment('START_TAB');
-  
+
   void selectTab(int value) {
     setState(() => tab = value);
   }
-
 
   AppStore get s => widget.store;
   Future<void> date() async {
@@ -533,14 +551,26 @@ class _HomeShellState extends State<HomeShell> {
       ],
     ),
     const SizedBox(height: 18),
-    Room(
-      theme: s.theme,
+    RoomPicker(store: s),
+    const SizedBox(height: 12),
+    RoomScene(
+      room: s.currentRoom,
+      theme: s.roomTheme,
+      petKind: s.pet?['kind'],
       onPlay: () => selectTab(1),
       onNote: note,
       onDate: date,
     ),
     const SizedBox(height: 8),
-    Center(child: small('Tap the cards, calendar, or note to explore.')),
+    Center(
+      child: small(
+        s.currentRoom == 'living'
+            ? 'Tap the cards, calendar, or note to explore.'
+            : '${s.roomName} · a little more space for us.',
+      ),
+    ),
+    const SizedBox(height: 16),
+    PetPanel(store: s),
     const SizedBox(height: 20),
     InkWell(
       onTap: () => selectTab(1),
@@ -825,8 +855,22 @@ class _HomeShellState extends State<HomeShell> {
           const SizedBox(height: 12),
           Row(
             children: [
-              small('Just for us'),
-              const Spacer(),
+              Expanded(child: small('Just for us')),
+              IconButton(
+                tooltip: s.pinnedNoteId == n['id']
+                    ? 'Pinned to widget'
+                    : 'Pin to phone widget',
+                onPressed: s.busy
+                    ? null
+                    : () => pinFridgeNote(context, s, n['id']),
+                icon: Icon(
+                  s.pinnedNoteId == n['id']
+                      ? Icons.push_pin
+                      : Icons.add_to_home_screen,
+                  size: 19,
+                  color: coral,
+                ),
+              ),
               IconButton(
                 tooltip: 'Delete note',
                 visualDensity: VisualDensity.compact,
@@ -847,6 +891,8 @@ class _HomeShellState extends State<HomeShell> {
     small('WORDS TO COME HOME TO'),
     const SizedBox(height: 7),
     heading('Little love notes.', size: 33),
+    const SizedBox(height: 20),
+    FridgeWidgetPanel(store: s),
     const SizedBox(height: 12),
     small('For the big feelings and the everyday things.'),
     const SizedBox(height: 20),
@@ -870,11 +916,13 @@ class _HomeShellState extends State<HomeShell> {
     const SizedBox(height: 12),
     small('Earn hearts by showing up for each other.'),
     const SizedBox(height: 20),
-    Room(theme: s.theme),
+    RoomPicker(store: s),
+    const SizedBox(height: 12),
+    RoomScene(room: s.currentRoom, theme: s.roomTheme, petKind: s.pet?['kind']),
     const SizedBox(height: 22),
     Row(
       children: [
-        Expanded(child: heading('The sofa collection', size: 23)),
+        Expanded(child: heading('${s.roomName} colors', size: 23)),
         pill('4 colors', color: mint),
       ],
     ),
@@ -921,11 +969,11 @@ class _HomeShellState extends State<HomeShell> {
                 ),
               ),
               TextButton(
-                onPressed: s.busy || s.theme == d.id
+                onPressed: s.busy || s.roomTheme == d.id
                     ? null
                     : () => s.run(() => s.decorate(d.id)),
                 child: Text(
-                  s.theme == d.id
+                  s.roomTheme == d.id
                       ? 'In our home'
                       : s.owned.contains(d.id)
                       ? 'Use'
@@ -965,6 +1013,8 @@ class _HomeShellState extends State<HomeShell> {
     ),
     const SizedBox(height: 20),
     if (!s.paired) inviteCard(),
+    FridgeWidgetPanel(store: s),
+    const SizedBox(height: 12),
     ListTile(
       leading: const Icon(Icons.calendar_month_outlined),
       title: const Text('Our next meeting'),
@@ -1005,7 +1055,7 @@ class _HomeShellState extends State<HomeShell> {
     ),
     const SizedBox(height: 24),
     Center(
-      child: small('Little us · made for the little moments\nVersion 1.0.0'),
+      child: small('Little us · made for the little moments\nVersion 2.0.0'),
     ),
   ];
 }
@@ -1235,7 +1285,7 @@ void showPolicy(BuildContext context) => showModalBottomSheet(
             heading('Privacy, with care.'),
             const SizedBox(height: 18),
             const Text(
-              'Demo mode stores your home, notes, game answers, and preferences on this device. It does not send them to a partner. Delete local demo data in Us to erase them.\n\nConnected mode uses Supabase for authentication and storage. Your email, account ID, chosen name, notes, answers, guesses, home decorations, and reunion date are processed to provide your shared home. Your paired partner can see shared content; answers are hidden until both finish a round. Invite codes should only be shared privately.\n\nThere are no ads, analytics SDKs, location tracking, or in-app purchases in this version. This app does not provide end-to-end encryption. Network data uses HTTPS. Authentication tokens are persisted by the authentication SDK on this device.\n\nDelete individual notes in Notes. Leave and erase shared home removes the entire home for both people. Delete account also removes your sign-in account. Your partner’s account remains. Hosting-provider logs and backups may remain according to the deployed service’s retention settings.\n\nBefore public release, the operator must publish the supplied full policy with their contact information and verified retention details.',
+              'Demo mode stores your home, notes, game answers, and preferences on this device. It does not send them to a partner. Delete local demo data in Us to erase them.\n\nConnected mode uses Supabase for authentication and storage. Your email, account ID, chosen name, notes, answers, guesses, home decorations, and reunion date are processed to provide your shared home. Your paired partner can see shared content; answers are hidden until both finish a round. Invite codes should only be shared privately.\n\nVersion 2 also stores your unlocked rooms, room colors, pet name/species, bond XP, and daily pet-care actions. If you enable the home-screen widget, a copy of the selected note, author, and sync time is saved on this device and shared with the operating system widget. No account tokens are shared with the widget. Anyone who can see your home screen may see the note. Turn the widget off or sign out to clear the local snapshot; an offline widget may keep an old note until this app syncs, and the operating system controls when it redraws.\n\nThere are no ads, analytics SDKs, location tracking, or in-app purchases in this version. This app does not provide end-to-end encryption. Network data uses HTTPS. Authentication tokens are persisted by the authentication SDK on this device.\n\nDelete individual notes in Notes. Leave and erase shared home removes the entire home for both people. Delete account also removes your sign-in account. Your partner’s account remains. Hosting-provider logs and backups may remain according to the deployed service’s retention settings.\n\nBefore public release, the operator must publish the supplied full policy with their contact information and verified retention details.',
               style: TextStyle(height: 1.65),
             ),
             const SizedBox(height: 20),

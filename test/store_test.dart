@@ -1,3 +1,4 @@
+import 'v2_store_test.dart' show FakeFridge;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:little_us/store.dart';
@@ -7,7 +8,7 @@ void main() {
   late AppStore store;
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
-    store = AppStore(await SharedPreferences.getInstance());
+    store = AppStore(await SharedPreferences.getInstance(), fridgeBridge: FakeFridge());
     await store.startDemo();
   });
   tearDown(() => store.dispose());
@@ -44,7 +45,7 @@ void main() {
   test('demo notes and room survive reopening, deletion clears them', () async {
     await store.addNote('Remember this');
     await store.decorate('mint');
-    final next = AppStore(await SharedPreferences.getInstance());
+    final next = AppStore(await SharedPreferences.getInstance(), fridgeBridge: FakeFridge());
     await next.startDemo();
     expect(next.notes.first['body'], 'Remember this');
     expect(next.theme, 'mint');

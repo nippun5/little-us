@@ -4,9 +4,12 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'models.dart';
+import 'fridge_widget.dart';
 
 class AppStore extends ChangeNotifier {
-  AppStore(this.prefs, {this.client});
+  AppStore(this.prefs, {this.client, FridgeBridge? fridgeBridge})
+    : fridgeBridge = fridgeBridge ?? NativeFridgeBridge();
+  final FridgeBridge fridgeBridge;
   final SharedPreferences prefs;
   final SupabaseClient? client;
   bool demo = false, busy = false;
@@ -14,6 +17,57 @@ class AppStore extends ChangeNotifier {
   Map<String, dynamic>? home;
   List<Map<String, dynamic>> notes = [], rounds = [];
   String day = utcDay();
+  Map<String, dynamic>? pet;
+  List<String> petCareToday = [];
+  String currentRoom = 'living';
+  String? widgetError;
+  String? _lastScope, _widgetFingerprint;
+  DateTime? _lastWidgetWrite;
+  bool _refreshing = false;
+  bool _disposed = false;
+  Future<void> _refreshQueue = Future.value();
+  int _generation = 0;
+  List<String> get unlockedRooms =>
+      List<String>.from(home?['unlocked_rooms'] ?? ['living']);
+  String get roomTheme => currentRoom == 'living'
+      ? theme
+      : (home?['room_themes']?[currentRoom] ?? 'peach');
+  String get roomName =>
+      const {
+        'living': 'Living room',
+        'bedroom': 'Bedroom',
+        'garden': 'Garden',
+      }[currentRoom] ??
+      'Living room';
+  String? get widgetScope => home == null
+      ? null
+      : demo
+      ? 'demo'
+      : '${client?.auth.currentUser?.id}:${home!['id']}';
+  bool get widgetEnabled =>
+      widgetScope != null &&
+      prefs.getBool('fridge_enabled_$widgetScope') == true;
+  String? get pinnedNoteId =>
+      widgetScope == null ? null : prefs.getString('fridge_pin_$widgetScope');
+  Map<String, dynamic>? get widgetNote {
+    final id = pinnedNoteId;
+    if (id != null) {
+      for (final n in notes) {
+        if (n['id'] == id) return n;
+      }
+    }
+    for (final n in notes) {
+      if (n['author_id'] != null
+          ? n['author_id'] != me
+          : demo && n['author'] != myName) {
+        return n;
+      }
+    }
+    return null;
+  }
+
+  int get petLevel => 1 + ((pet?['xp'] ?? 0) as int) ~/ 20;
+
   Timer? timer;
   StreamSubscription<AuthState>? auth;
   bool get signedIn => client?.auth.currentUser != null;
@@ -34,12 +88,13 @@ class AppStore extends ChangeNotifier {
 
   Future<void> init() async {
     if (prefs.getBool('demo') == true) await startDemo();
+    if (!demo && !signedIn) await syncFridgeWidget();
     auth = client?.auth.onAuthStateChange.listen((_) {
       if (!demo) refresh();
     });
     if (signedIn && !demo) await refresh();
     timer = Timer.periodic(const Duration(seconds: 15), (_) {
-      if (!busy && (demo || signedIn)) refresh();
+      if (!busy && !_refreshing && (demo || signedIn)) refresh();
     });
   }
 
@@ -63,6 +118,7 @@ class AppStore extends ChangeNotifier {
   }
 
   Future<void> startDemo() async {
+    _generation++;
     demo = true;
     final raw = prefs.getString('demo_state');
     if (raw != null) {
@@ -70,6 +126,10 @@ class AppStore extends ChangeNotifier {
       home = Map<String, dynamic>.from(d['home']);
       notes = List<Map<String, dynamic>>.from(d['notes']);
       rounds = List<Map<String, dynamic>>.from(d['rounds']);
+      pet = d['pet'] == null ? null : Map<String, dynamic>.from(d['pet']);
+      petCareToday = d['care_day'] == day
+          ? List<String>.from(d['pet_care'] ?? [])
+          : [];
     } else {
       home = {
         'a': 'demo-a',
@@ -87,6 +147,7 @@ class AppStore extends ChangeNotifier {
       notes = [
         {
           'id': 'welcome',
+          'author_id': 'demo-b',
           'author': 'Jamie',
           'body':
               'Found a little café we would love. Saving you the window seat.',
@@ -95,6 +156,7 @@ class AppStore extends ChangeNotifier {
       ];
       rounds = [];
     }
+    _restoreRoom();
     await prefs.setBool('demo', true);
     await persist();
     notifyListeners();
@@ -104,15 +166,41 @@ class AppStore extends ChangeNotifier {
     if (demo) {
       await prefs.setString(
         'demo_state',
-        jsonEncode({'home': home, 'notes': notes, 'rounds': rounds}),
+        jsonEncode({
+          'home': home,
+          'notes': notes,
+          'rounds': rounds,
+          'pet': pet,
+          'pet_care': petCareToday,
+          'care_day': day,
+        }),
       );
     }
+    await syncFridgeWidget();
   }
 
-  Future<void> refresh() async {
+  Future<void> refresh() {
+    final task = _refreshQueue
+        .catchError((Object _) {})
+        .then((_) => _refreshNow());
+    _refreshQueue = task;
+    return task;
+  }
+
+  Future<void> _refreshNow() async {
+    if (_disposed) return;
+    _refreshing = true;
+    final generation = _generation;
+    final userId = client?.auth.currentUser?.id;
     try {
       if (demo) {
-        day = utcDay();
+        final nextDay = utcDay();
+        if (day != nextDay) {
+          day = nextDay;
+          petCareToday = [];
+          await persist();
+        }
+        await syncFridgeWidget();
         notifyListeners();
         return;
       }
@@ -120,22 +208,41 @@ class AppStore extends ChangeNotifier {
         home = null;
         notes = [];
         rounds = [];
+        pet = null;
+        petCareToday = [];
+        _restoreRoom();
+        await syncFridgeWidget();
         notifyListeners();
         return;
       }
-      final data = Map<String, dynamic>.from(await client!.rpc('get_home'));
+      final data = Map<String, dynamic>.from(
+        await client!.rpc('get_home').timeout(const Duration(seconds: 15)),
+      );
+      if (generation != _generation ||
+          demo ||
+          userId != client?.auth.currentUser?.id) {
+        return;
+      }
       home = data['home'] == null
           ? null
           : Map<String, dynamic>.from(data['home']);
       notes = List<Map<String, dynamic>>.from(data['notes'] ?? []);
       rounds = List<Map<String, dynamic>>.from(data['rounds'] ?? []);
+      pet = data['pet'] == null ? null : Map<String, dynamic>.from(data['pet']);
+      petCareToday = List<String>.from(data['pet_care_today'] ?? []);
       day = data['day'];
       error = null;
+      _restoreRoom();
+      await syncFridgeWidget();
       notifyListeners();
     } catch (_) {
-      error =
-          'Unable to sync. Your last loaded home is shown. Pull down to retry.';
-      notifyListeners();
+      if (generation == _generation) {
+        error =
+            'Unable to sync. Your last loaded home is shown. Pull down to retry.';
+        notifyListeners();
+      }
+    } finally {
+      _refreshing = false;
     }
   }
 
@@ -173,6 +280,7 @@ class AppStore extends ChangeNotifier {
       notes.insert(0, {
         'id': DateTime.now().microsecondsSinceEpoch.toString(),
         'author': myName,
+        'author_id': me,
         'body': text.trim(),
         'created_at': DateTime.now().toIso8601String(),
       });
@@ -207,10 +315,20 @@ class AppStore extends ChangeNotifier {
         home!['coins'] = coins - item.price;
         home!['owned'] = [...owned, id];
       }
-      home!['theme'] = id;
+      if (currentRoom == 'living') {
+        home!['theme'] = id;
+      } else {
+        home!['room_themes'] = {
+          ...Map<String, dynamic>.from(home!['room_themes'] ?? {}),
+          currentRoom: id,
+        };
+      }
       await persist();
     } else {
-      await client!.rpc('decorate', params: {'item': id});
+      await client!.rpc(
+        'decorate_room',
+        params: {'room': currentRoom, 'item': id},
+      );
       await refresh();
     }
     notifyListeners();
@@ -274,18 +392,27 @@ class AppStore extends ChangeNotifier {
   }
 
   Future<void> signOut() async {
+    _generation++;
     if (!demo) await client?.auth.signOut();
     demo = false;
     home = null;
     notes = [];
     rounds = [];
     error = null;
+    pet = null;
+    petCareToday = [];
+    currentRoom = 'living';
+    _lastScope = null;
+    await syncFridgeWidget();
     await prefs.setBool('demo', false);
     notifyListeners();
   }
 
   Future<void> leave() async {
     if (demo) {
+      await prefs.remove('fridge_enabled_demo');
+      await prefs.remove('fridge_pin_demo');
+      await prefs.remove('room_demo');
       await prefs.remove('demo_state');
       await signOut();
     } else {
@@ -300,12 +427,173 @@ class AppStore extends ChangeNotifier {
       return;
     }
     await client!.rpc('delete_my_account');
+    _generation++;
+    home = null;
+    notes = [];
+    rounds = [];
+    pet = null;
+    petCareToday = [];
+    await syncFridgeWidget();
     await client!.auth.signOut(scope: SignOutScope.local);
     await refresh();
   }
 
+  void _restoreRoom() {
+    if (_lastScope != widgetScope) {
+      currentRoom = prefs.getString('room_$widgetScope') ?? 'living';
+      _lastScope = widgetScope;
+    }
+    if (!unlockedRooms.contains(currentRoom)) currentRoom = 'living';
+  }
+
+  Future<void> selectRoom(String room) async {
+    if (!unlockedRooms.contains(room)) {
+      throw const PostgrestException(message: 'Unlock this room first.');
+    }
+    currentRoom = room;
+    await prefs.setString('room_$widgetScope', room);
+    notifyListeners();
+  }
+
+  Future<void> unlockRoom(String room) async {
+    final cost = const {'bedroom': 80, 'garden': 120}[room];
+    if (cost == null) throw const PostgrestException(message: 'Unknown room.');
+    if (demo) {
+      if (!unlockedRooms.contains(room)) {
+        if (coins < cost) {
+          throw const PostgrestException(
+            message: 'Complete more rounds together to unlock this room.',
+          );
+        }
+        home!['coins'] = coins - cost;
+        home!['unlocked_rooms'] = [...unlockedRooms, room];
+        await persist();
+      }
+    } else {
+      await client!.rpc('unlock_room', params: {'room': room});
+      await refresh();
+    }
+    if (unlockedRooms.contains(room)) await selectRoom(room);
+  }
+
+  Future<void> adoptPet(String kind, String name) async {
+    if (!['cat', 'dog'].contains(kind) ||
+        name.trim().isEmpty ||
+        name.trim().length > 20) {
+      throw const PostgrestException(
+        message: 'Choose a pet and a name of 1–20 characters.',
+      );
+    }
+    if (demo) {
+      if (pet != null) {
+        throw const PostgrestException(message: 'Your home already has a pet.');
+      }
+      pet = {'kind': kind, 'name': name.trim(), 'xp': 0};
+      await persist();
+    } else {
+      await client!.rpc(
+        'adopt_pet',
+        params: {'pet_kind': kind, 'pet_name': name.trim()},
+      );
+      await refresh();
+    }
+    notifyListeners();
+  }
+
+  Future<void> renamePet(String name) async {
+    if (name.trim().isEmpty || name.trim().length > 20 || pet == null) {
+      throw const PostgrestException(message: 'Use a name of 1–20 characters.');
+    }
+    if (demo) {
+      pet!['name'] = name.trim();
+      await persist();
+    } else {
+      await client!.rpc('rename_pet', params: {'pet_name': name.trim()});
+      await refresh();
+    }
+    notifyListeners();
+  }
+
+  Future<void> careForPet(String action) async {
+    if (pet == null || !['feed', 'play'].contains(action)) {
+      throw const PostgrestException(message: 'Adopt a pet first.');
+    }
+    if (demo) {
+      if (day != utcDay()) {
+        day = utcDay();
+        petCareToday = [];
+      }
+      if (!petCareToday.contains(action)) {
+        petCareToday.add(action);
+        pet!['xp'] = (pet!['xp'] as int) + (action == 'feed' ? 2 : 3);
+        await persist();
+      }
+    } else {
+      await client!.rpc('care_for_pet', params: {'care_action': action});
+      await refresh();
+    }
+    notifyListeners();
+  }
+
+  Future<void> setWidgetEnabled(bool value) async {
+    if (widgetScope == null) return;
+    await prefs.setBool('fridge_enabled_$widgetScope', value);
+    await syncFridgeWidget(force: true);
+    notifyListeners();
+  }
+
+  Future<void> pinWidgetNote(String? noteId) async {
+    if (widgetScope == null) return;
+    if (noteId == null) {
+      await prefs.remove('fridge_pin_$widgetScope');
+    } else {
+      await prefs.setString('fridge_pin_$widgetScope', noteId);
+    }
+    await setWidgetEnabled(true);
+  }
+
+  Future<void> syncFridgeWidget({bool force = false}) async {
+    final note = home == null ? null : widgetNote;
+    final enabled = widgetEnabled;
+    final data = <String, Object?>{
+      'enabled': enabled,
+      'body': enabled
+          ? (note?['body'] ?? 'Your next little note will appear here.')
+          : '',
+      'author': enabled ? (note?['author'] ?? 'Little us') : '',
+      'demo': demo && enabled,
+    };
+    final fingerprint = jsonEncode(data);
+    final now = DateTime.now();
+    if (!force &&
+        fingerprint == _widgetFingerprint &&
+        _lastWidgetWrite != null &&
+        now.difference(_lastWidgetWrite!) < const Duration(minutes: 15)) {
+      return;
+    }
+    try {
+      await fridgeBridge.update({
+        ...data,
+        'updatedAt': now.millisecondsSinceEpoch,
+      });
+      _widgetFingerprint = fingerprint;
+      _lastWidgetWrite = now;
+      widgetError = null;
+    } catch (_) {
+      widgetError =
+          'Widget could not update. Check the native widget installation and, on iOS, the shared App Group.';
+    }
+  }
+
+  @override
+  void notifyListeners() {
+    if (!_disposed) super.notifyListeners();
+  }
+
   @override
   void dispose() {
+    _disposed = true;
+    _generation++;
     timer?.cancel();
     auth?.cancel();
     super.dispose();
