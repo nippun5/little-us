@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/fridge_root" android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:padding="18dp" android:background="@drawable/fridge_widget_background"
+    android:contentDescription="Little us fridge note. Tap to open Little us.">
+    <TextView android:id="@+id/fridge_brand" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:text="LITTLE US" android:textColor="#A44B5B" android:textSize="12sp" android:textStyle="bold" />
+    <TextView android:id="@+id/fridge_author" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginTop="8dp" android:text="YOUR LITTLE FRIDGE" android:textColor="#796454" android:textSize="11sp" android:maxLines="1" android:ellipsize="end" />
+    <TextView android:id="@+id/fridge_body" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"
+        android:layout_marginTop="8dp" android:text="A little note, just for you." android:textColor="#443747"
+        android:fontFamily="serif" android:textSize="18sp" android:maxLines="8" android:ellipsize="end" />
+    <TextView android:id="@+id/fridge_updated" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginTop="8dp" android:text="Open Little us to refresh" android:textColor="#796454" android:textSize="10sp" android:maxLines="2" android:ellipsize="end" />
+</LinearLayout>

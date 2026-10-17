@@ -1,3 +1,4 @@
+import 'v2_store_test.dart' show FakeFridge;
 // Actual Flutter raster captures, with bundled production fonts.
 // flutter test test/capture_screenshots.dart --update-goldens
 import 'dart:io';
@@ -30,7 +31,7 @@ void main() {
       ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'));
     await icons.load();
     SharedPreferences.setMockInitialValues({});
-    final store = AppStore(await SharedPreferences.getInstance());
+    final store = AppStore(await SharedPreferences.getInstance(), fridgeBridge: FakeFridge());
     await store.startDemo();
     final boundary = GlobalKey();
     await tester.pumpWidget(

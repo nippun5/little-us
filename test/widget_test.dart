@@ -1,3 +1,4 @@
+import 'v2_store_test.dart' show FakeFridge;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -11,7 +12,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     SharedPreferences.setMockInitialValues({});
-    final store = AppStore(await SharedPreferences.getInstance());
+    final store = AppStore(await SharedPreferences.getInstance(), fridgeBridge: FakeFridge());
     await store.startDemo();
     await tester.pumpWidget(LittleUs(store: store));
     await tester.pumpAndSettle();

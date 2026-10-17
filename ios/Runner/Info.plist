@@ -45,5 +45,7 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+    <key>LittleUsAppGroup</key>
+    <string>group.com.littleus.littleus</string>
 </dict>
 </plist>
