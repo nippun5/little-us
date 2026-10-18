@@ -7,6 +7,7 @@ import 'store.dart';
 import 'room.dart';
 import 'room_scenes.dart';
 import 'v2_features.dart';
+import 'v3_features.dart';
 
 const ink = Color(0xFF443747),
     muted = Color(0xFF817580),
@@ -557,6 +558,8 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       room: s.currentRoom,
       theme: s.roomTheme,
       petKind: s.pet?['kind'],
+      accessory: s.petAccessory,
+      bedroomFrames: BedroomWallFrames(store: s),
       onPlay: () => selectTab(1),
       onNote: note,
       onDate: date,
@@ -570,7 +573,9 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       ),
     ),
     const SizedBox(height: 16),
+    if (s.currentRoom == 'bedroom') BedroomPhotoPanel(store: s),
     PetPanel(store: s),
+    PetAccessoriesPanel(store: s),
     const SizedBox(height: 20),
     InkWell(
       onTap: () => selectTab(1),
@@ -918,7 +923,13 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     const SizedBox(height: 20),
     RoomPicker(store: s),
     const SizedBox(height: 12),
-    RoomScene(room: s.currentRoom, theme: s.roomTheme, petKind: s.pet?['kind']),
+    RoomScene(
+      room: s.currentRoom,
+      theme: s.roomTheme,
+      petKind: s.pet?['kind'],
+      accessory: s.petAccessory,
+      bedroomFrames: BedroomWallFrames(store: s),
+    ),
     const SizedBox(height: 22),
     Row(
       children: [
@@ -1034,7 +1045,9 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     ListTile(
       leading: const Icon(Icons.link_off),
       title: Text(s.demo ? 'Reset demo home' : 'Leave and erase shared home'),
-      subtitle: const Text('Removes notes, rounds, and decorations for both.'),
+      subtitle: const Text(
+        'Removes notes, rounds, photos, and decorations for both.',
+      ),
       onTap: () => confirm(
         'Erase this home?',
         'This permanently removes all shared content for both partners. Your account remains unless you choose Delete account.',
@@ -1055,7 +1068,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     ),
     const SizedBox(height: 24),
     Center(
-      child: small('Little us · made for the little moments\nVersion 2.0.0'),
+      child: small('Little us · made for the little moments\nVersion 2.1.0'),
     ),
   ];
 }
@@ -1283,6 +1296,10 @@ void showPolicy(BuildContext context) => showModalBottomSheet(
         child: ListView(
           children: [
             heading('Privacy, with care.'),
+            const Text(
+              'Bedroom photos are optional and shared only with your home. Each partner controls one frame. Photos are resized and rebuilt without location metadata, stored privately, and removed when you erase the shared home. Pet accessory ownership and the equipped item are shared. Photos are not placed in the fridge widget.',
+            ),
+            const SizedBox(height: 12),
             const SizedBox(height: 18),
             const Text(
               'Demo mode stores your home, notes, game answers, and preferences on this device. It does not send them to a partner. Delete local demo data in Us to erase them.\n\nConnected mode uses Supabase for authentication and storage. Your email, account ID, chosen name, notes, answers, guesses, home decorations, and reunion date are processed to provide your shared home. Your paired partner can see shared content; answers are hidden until both finish a round. Invite codes should only be shared privately.\n\nVersion 2 also stores your unlocked rooms, room colors, pet name/species, bond XP, and daily pet-care actions. If you enable the home-screen widget, a copy of the selected note, author, and sync time is saved on this device and shared with the operating system widget. No account tokens are shared with the widget. Anyone who can see your home screen may see the note. Turn the widget off or sign out to clear the local snapshot; an offline widget may keep an old note until this app syncs, and the operating system controls when it redraws.\n\nThere are no ads, analytics SDKs, location tracking, or in-app purchases in this version. This app does not provide end-to-end encryption. Network data uses HTTPS. Authentication tokens are persisted by the authentication SDK on this device.\n\nDelete individual notes in Notes. Leave and erase shared home removes the entire home for both people. Delete account also removes your sign-in account. Your partner’s account remains. Hosting-provider logs and backups may remain according to the deployed service’s retention settings.\n\nBefore public release, the operator must publish the supplied full policy with their contact information and verified retention details.',
