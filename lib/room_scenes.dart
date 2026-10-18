@@ -9,12 +9,16 @@ class RoomScene extends StatelessWidget {
     required this.room,
     required this.theme,
     this.petKind,
+    this.accessory = 'none',
+    this.bedroomFrames,
     this.onPlay,
     this.onNote,
     this.onDate,
   });
   final String room, theme;
   final String? petKind;
+  final String accessory;
+  final Widget? bedroomFrames;
   final VoidCallback? onPlay, onNote, onDate;
   @override
   Widget build(BuildContext context) => Stack(
@@ -33,6 +37,17 @@ class RoomScene extends StatelessWidget {
             ),
           ),
         ),
+      if (room == 'bedroom' && bedroomFrames != null)
+        Positioned.fill(
+          child: Align(
+            alignment: const Alignment(-.38, -.83),
+            child: FractionallySizedBox(
+              widthFactor: .48,
+              heightFactor: .25,
+              child: bedroomFrames,
+            ),
+          ),
+        ),
       if (petKind != null)
         Positioned(
           left: 16,
@@ -40,7 +55,7 @@ class RoomScene extends StatelessWidget {
           child: SizedBox(
             width: 78,
             height: 83,
-            child: PetPortrait(kind: petKind!),
+            child: PetPortrait(kind: petKind!, accessory: accessory),
           ),
         ),
     ],
@@ -48,8 +63,9 @@ class RoomScene extends StatelessWidget {
 }
 
 class PetPortrait extends StatefulWidget {
-  const PetPortrait({super.key, required this.kind});
+  const PetPortrait({super.key, required this.kind, this.accessory = 'none'});
   final String kind;
+  final String accessory;
   @override
   State<PetPortrait> createState() => _PetPortraitState();
 }
@@ -82,7 +98,7 @@ class _PetPortraitState extends State<PetPortrait> {
             : const Duration(milliseconds: 220),
         curve: Curves.easeOutBack,
         child: CustomPaint(
-          painter: PetPainter(widget.kind, happy),
+          painter: PetPainter(widget.kind, happy, widget.accessory),
           size: const Size(120, 120),
         ),
       ),
@@ -91,7 +107,8 @@ class _PetPortraitState extends State<PetPortrait> {
 }
 
 class PetPainter extends CustomPainter {
-  PetPainter(this.kind, this.happy);
+  PetPainter(this.kind, this.happy, [this.accessory = 'none']);
+  final String accessory;
   final String kind;
   final bool happy;
   @override
@@ -179,6 +196,49 @@ class PetPainter extends CustomPainter {
     c.drawArc(const Rect.fromLTWH(56, 61, 15, 9), 0, math.pi, false, p);
     p.style = PaintingStyle.fill;
     oval(44, 82, 33, 19, const Color(0xFFFFEAD2));
+    if (accessory == 'collar') {
+      p.color = const Color(0xFFE8BA62);
+      c.drawRRect(
+        RRect.fromRectAndRadius(
+          const Rect.fromLTWH(36, 76, 51, 8),
+          const Radius.circular(4),
+        ),
+        p,
+      );
+      oval(57, 80, 10, 12, const Color(0xFFFFDF83));
+    } else if (accessory == 'bow') {
+      path([
+        const Offset(55, 77),
+        const Offset(39, 69),
+        const Offset(39, 88),
+      ], pink);
+      path([
+        const Offset(62, 77),
+        const Offset(79, 69),
+        const Offset(79, 88),
+      ], pink);
+      oval(53, 73, 12, 12, const Color(0xFFB95F80));
+    } else if (accessory == 'bandana') {
+      path([
+        const Offset(34, 76),
+        const Offset(89, 76),
+        const Offset(62, 99),
+      ], const Color(0xFF73B5A6));
+      oval(51, 81, 3, 3, Colors.white);
+      oval(65, 86, 3, 3, Colors.white);
+      oval(73, 80, 3, 3, Colors.white);
+    } else if (accessory == 'crown') {
+      path([
+        const Offset(40, 25),
+        const Offset(35, 5),
+        const Offset(52, 14),
+        const Offset(62, 1),
+        const Offset(72, 14),
+        const Offset(88, 5),
+        const Offset(83, 25),
+      ], const Color(0xFFE7B74D));
+      oval(58, 14, 8, 8, pink);
+    }
     if (happy) {
       p.color = pink;
       final heart = Path()
@@ -191,7 +251,8 @@ class PetPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(PetPainter old) => old.kind != kind || old.happy != happy;
+  bool shouldRepaint(PetPainter old) =>
+      old.kind != kind || old.happy != happy || old.accessory != accessory;
 }
 
 class ExtraRoomPainter extends CustomPainter {
@@ -267,12 +328,7 @@ class ExtraRoomPainter extends CustomPainter {
       oval(322, 193, 7, 5, wood);
       line(326, 178, 326, 148, wood, 3);
       rect(308, 129, 37, 24, const Color(0xFFFFDDA3), 7);
-      rect(46, 50, 56, 56, cream, 4);
-      oval(58, 62, 32, 31, const Color(0xFFD99AA2));
-      rect(126, 50, 60, 8, wood, 3);
-      rect(133, 29, 10, 21, const Color(0xFFC7B0D5), 2);
-      rect(146, 24, 10, 26, const Color(0xFF9FB7A6), 2);
-      rect(159, 32, 14, 18, const Color(0xFFE8BA91), 2);
+      // Two interactive Flutter photo frames are overlaid above the bed.
     } else {
       rect(0, 0, 400, 300, const Color(0xFFDCEDE8));
       oval(283, 24, 44, 44, const Color(0xFFFFDE96));

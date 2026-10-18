@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/painting.dart' show MemoryImage;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'models.dart';
 import 'fridge_widget.dart';
+import 'accessories.dart';
 
 class AppStore extends ChangeNotifier {
   AppStore(this.prefs, {this.client, FridgeBridge? fridgeBridge})
@@ -21,6 +23,182 @@ class AppStore extends ChangeNotifier {
   List<String> petCareToday = [];
   String currentRoom = 'living';
   String? widgetError;
+  List<Map<String, dynamic>> frames = [];
+  final Map<String, Uint8List> frameBytes = {};
+  final Map<String, String> _frameRevisions = {};
+  String? photoError;
+  String? _photoScope;
+  String get petAccessory => pet?['accessory'] ?? 'none';
+  List<String> get ownedAccessories =>
+      List<String>.from(pet?['accessories'] ?? []);
+
+  void _clearPhotos() {
+    for (final bytes in frameBytes.values) {
+      unawaited(MemoryImage(bytes).evict());
+    }
+    frames = [];
+    frameBytes.clear();
+    _frameRevisions.clear();
+    photoError = null;
+    _photoScope = null;
+  }
+
+  Future<void> refreshFrames() async {
+    if (demo ||
+        !signedIn ||
+        home == null ||
+        !unlockedRooms.contains('bedroom')) {
+      return;
+    }
+    final scope = widgetScope;
+    final generation = _generation;
+    bool current() =>
+        !_disposed &&
+        generation == _generation &&
+        scope == widgetScope &&
+        !demo;
+    if (_photoScope != scope) {
+      _clearPhotos();
+      _photoScope = scope;
+    }
+    try {
+      final rows = List<Map<String, dynamic>>.from(
+        await client!
+            .rpc('get_bedroom_frames')
+            .timeout(const Duration(seconds: 15)),
+      );
+      if (!current()) return;
+      frames = rows;
+      final owners = rows.map((r) => r['owner'] as String).toSet();
+      frameBytes.removeWhere((id, _) => !owners.contains(id));
+      _frameRevisions.removeWhere((id, _) => !owners.contains(id));
+      for (final frame in rows) {
+        final owner = frame['owner'] as String;
+        final revision = frame['revision'] as String?;
+        if (revision == null) {
+          frameBytes.remove(owner);
+          _frameRevisions.remove(owner);
+          continue;
+        }
+        if (_frameRevisions[owner] == revision) continue;
+        // Remove outdated pixels even if the subsequent download fails.
+        frameBytes.remove(owner);
+        _frameRevisions.remove(owner);
+        final bytes = await client!.storage
+            .from('bedroom-frames')
+            .download(frame['path'] as String)
+            .timeout(const Duration(seconds: 20));
+        if (!current()) return;
+        frameBytes[owner] = bytes;
+        _frameRevisions[owner] = revision;
+      }
+      photoError = null;
+    } catch (_) {
+      if (current()) photoError = 'Photos could not sync. Pull down to retry.';
+    }
+  }
+
+  Future<void> uploadFrame(Uint8List jpeg, String expectedScope) async {
+    if (home == null ||
+        widgetScope != expectedScope ||
+        !unlockedRooms.contains('bedroom')) {
+      throw const PostgrestException(
+        message: 'Your home changed. Choose the photo again.',
+      );
+    }
+    if (jpeg.length > 1048576 ||
+        jpeg.length < 3 ||
+        jpeg[0] != 255 ||
+        jpeg[1] != 216) {
+      throw const PostgrestException(
+        message: 'Choose a JPEG smaller than 1 MB.',
+      );
+    }
+    if (demo) {
+      frameBytes[me] = jpeg;
+    } else {
+      final path = '${home!['id']}/$me.jpg';
+      await client!.storage
+          .from('bedroom-frames')
+          .uploadBinary(
+            path,
+            jpeg,
+            fileOptions: const FileOptions(
+              contentType: 'image/jpeg',
+              cacheControl: '0',
+              upsert: true,
+            ),
+          );
+      _frameRevisions.remove(me);
+      await refresh();
+    }
+    notifyListeners();
+  }
+
+  Future<void> removeMyFrame() async {
+    if (home == null) return;
+    if (demo) {
+      frameBytes.remove(me);
+    } else {
+      await client!.storage.from('bedroom-frames').remove([
+        '${home!['id']}/$me.jpg',
+      ]);
+      frameBytes.remove(me);
+      _frameRevisions.remove(me);
+      await refresh();
+    }
+    notifyListeners();
+  }
+
+  Future<void> equipAccessory(String item) async {
+    final selected = petAccessories.where((a) => a.id == item).firstOrNull;
+    if (pet == null || selected == null) {
+      throw const PostgrestException(
+        message: 'Adopt a pet and choose an accessory.',
+      );
+    }
+    if (demo) {
+      final price = ownedAccessories.contains(item) ? 0 : selected.price;
+      if (coins < price) {
+        throw const PostgrestException(
+          message: 'Complete more rounds together to earn hearts.',
+        );
+      }
+      home!['coins'] = coins - price;
+      if (item != 'none' && !ownedAccessories.contains(item)) {
+        pet!['accessories'] = [...ownedAccessories, item];
+      }
+      pet!['accessory'] = item;
+      await persist();
+    } else {
+      await client!.rpc('equip_pet_accessory', params: {'item': item});
+      await refresh();
+    }
+    notifyListeners();
+  }
+
+  Future<void> cancelPhotoCleanup() async {
+    if (!demo) await client!.rpc('cancel_frame_cleanup');
+    await refresh();
+  }
+
+  Future<void> _deleteHomeWithPhotos({required bool account}) async {
+    try {
+      final paths = List<String>.from(await client!.rpc('begin_frame_cleanup'));
+      if (paths.isNotEmpty) {
+        await client!.storage.from('bedroom-frames').remove(paths);
+      }
+      await client!.rpc(account ? 'delete_my_account' : 'leave_home');
+      _clearPhotos();
+    } catch (_) {
+      // If connectivity is lost, a visible Resume uploads action unlocks it later.
+      try {
+        await client!.rpc('cancel_frame_cleanup');
+      } catch (_) {}
+      rethrow;
+    }
+  }
+
   String? _lastScope, _widgetFingerprint;
   DateTime? _lastWidgetWrite;
   bool _refreshing = false;
@@ -110,6 +288,10 @@ class AppStore extends ChangeNotifier {
           ? e.message
           : e is PostgrestException
           ? e.message
+          : e is StorageException
+          ? 'Photo storage: ${e.message}'
+          : e is FormatException
+          ? e.message
           : 'Could not connect. Check your connection and try again.';
     } finally {
       busy = false;
@@ -119,6 +301,7 @@ class AppStore extends ChangeNotifier {
 
   Future<void> startDemo() async {
     _generation++;
+    _clearPhotos();
     demo = true;
     final raw = prefs.getString('demo_state');
     if (raw != null) {
@@ -206,6 +389,7 @@ class AppStore extends ChangeNotifier {
       }
       if (!signedIn) {
         home = null;
+        _clearPhotos();
         notes = [];
         rounds = [];
         pet = null;
@@ -231,6 +415,13 @@ class AppStore extends ChangeNotifier {
       pet = data['pet'] == null ? null : Map<String, dynamic>.from(data['pet']);
       petCareToday = List<String>.from(data['pet_care_today'] ?? []);
       day = data['day'];
+      if (home == null || _photoScope != widgetScope) _clearPhotos();
+      await refreshFrames();
+      if (generation != _generation ||
+          demo ||
+          userId != client?.auth.currentUser?.id) {
+        return;
+      }
       error = null;
       _restoreRoom();
       await syncFridgeWidget();
@@ -395,6 +586,7 @@ class AppStore extends ChangeNotifier {
     _generation++;
     if (!demo) await client?.auth.signOut();
     demo = false;
+    _clearPhotos();
     home = null;
     notes = [];
     rounds = [];
@@ -416,7 +608,7 @@ class AppStore extends ChangeNotifier {
       await prefs.remove('demo_state');
       await signOut();
     } else {
-      await client!.rpc('leave_home');
+      await _deleteHomeWithPhotos(account: false);
       await refresh();
     }
   }
@@ -426,7 +618,7 @@ class AppStore extends ChangeNotifier {
       await leave();
       return;
     }
-    await client!.rpc('delete_my_account');
+    await _deleteHomeWithPhotos(account: true);
     _generation++;
     home = null;
     notes = [];

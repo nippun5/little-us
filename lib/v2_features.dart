@@ -138,7 +138,10 @@ class PetPanel extends StatelessWidget {
               SizedBox(
                 width: 88,
                 height: 92,
-                child: PetPortrait(kind: pet['kind']),
+                child: PetPortrait(
+                  kind: pet['kind'],
+                  accessory: store.petAccessory,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
