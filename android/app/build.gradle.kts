@@ -1,5 +1,6 @@
 import java.util.Properties
 import java.io.FileInputStream
+import org.gradle.api.GradleException
 
 plugins {
     id("com.android.application")
@@ -29,32 +30,28 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.littleus.little_us"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        minSdk = 24
+        targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
 
     signingConfigs {
-        if (signingFile.exists()) {
-            create("release") {
-                keyAlias = signingProperties["keyAlias"] as String
-                keyPassword = signingProperties["keyPassword"] as String
-                storeFile = file(signingProperties["storeFile"] as String)
-                storePassword = signingProperties["storePassword"] as String
+        create("release") {
+            if (!signingFile.exists()) {
+                throw GradleException("Missing key.properties! Expected at: ${signingFile.absolutePath}")
             }
+            keyAlias = signingProperties.getProperty("keyAlias")
+            keyPassword = signingProperties.getProperty("keyPassword")
+            storeFile = file(signingProperties.getProperty("storeFile"))
+            storePassword = signingProperties.getProperty("storePassword")
         }
     }
 
     buildTypes {
-        release {
-            if (signingFile.exists()) {
-                signingConfig = signingConfigs.getByName("release")
-            }
+        getByName("release") {
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 }
