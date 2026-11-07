@@ -13,21 +13,21 @@ class BedroomWallFrames extends StatelessWidget {
   final AppStore store;
   @override
   Widget build(BuildContext context) => Row(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      for (final slot in ['a', 'b']) ...[
-        if (slot == 'b') const SizedBox(width: 14),
-        Expanded(
-          child: _PhotoTile(
-            key: ValueKey('bedroom-frame-$slot'),
-            bytes: store.frameBytes[store.home?[slot]],
-            name: store.home?['${slot}_name'] ?? 'Your person',
-            compact: true,
-          ),
-        ),
-      ],
-    ],
-  );
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final slot in ['a', 'b']) ...[
+            if (slot == 'b') const SizedBox(width: 14),
+            Expanded(
+              child: _PhotoTile(
+                key: ValueKey('bedroom-frame-$slot'),
+                bytes: store.frameBytes[store.home?[slot]],
+                name: store.home?['${slot}_name'] ?? 'Your person',
+                compact: true,
+              ),
+            ),
+          ],
+        ],
+      );
 }
 
 class _PhotoTile extends StatelessWidget {
@@ -42,48 +42,48 @@ class _PhotoTile extends StatelessWidget {
   final bool compact;
   @override
   Widget build(BuildContext context) => Semantics(
-    label: "$name’s bedroom photo${bytes == null ? ', empty' : ''}",
-    child: Container(
-      padding: EdgeInsets.all(compact ? 4 : 9),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFF9EC),
-        borderRadius: BorderRadius.circular(compact ? 4 : 14),
-        border: Border.all(
-          color: const Color(0xFFC99B7D),
-          width: compact ? 2 : 3,
-        ),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x185E3A39),
-            blurRadius: 7,
-            offset: Offset(0, 3),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(compact ? 1 : 7),
-        child: bytes == null
-            ? ColoredBox(
-                color: const Color(0xFFF3DEE5),
-                child: Center(
-                  child: Icon(
-                    Icons.favorite_outline,
-                    size: compact ? 18 : 34,
-                    color: _rose,
-                  ),
-                ),
-              )
-            : Image.memory(
-                bytes!,
-                fit: BoxFit.cover,
-                width: double.infinity,
-                gaplessPlayback: false,
-                errorBuilder: (_, __, ___) =>
-                    const Center(child: Icon(Icons.broken_image_outlined)),
+        label: "$name’s bedroom photo${bytes == null ? ', empty' : ''}",
+        child: Container(
+          padding: EdgeInsets.all(compact ? 4 : 9),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFF9EC),
+            borderRadius: BorderRadius.circular(compact ? 4 : 14),
+            border: Border.all(
+              color: const Color(0xFFC99B7D),
+              width: compact ? 2 : 3,
+            ),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x185E3A39),
+                blurRadius: 7,
+                offset: Offset(0, 3),
               ),
-      ),
-    ),
-  );
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(compact ? 1 : 7),
+            child: bytes == null
+                ? ColoredBox(
+                    color: const Color(0xFFF3DEE5),
+                    child: Center(
+                      child: Icon(
+                        Icons.favorite_outline,
+                        size: compact ? 18 : 34,
+                        color: _rose,
+                      ),
+                    ),
+                  )
+                : Image.memory(
+                    bytes!,
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                    gaplessPlayback: false,
+                    errorBuilder: (_, __, ___) =>
+                        const Center(child: Icon(Icons.broken_image_outlined)),
+                  ),
+          ),
+        ),
+      );
 }
 
 class BedroomPhotoPanel extends StatefulWidget {
@@ -256,8 +256,8 @@ class _BedroomPhotoPanelState extends State<BedroomPhotoPanel> {
                         s.home?[slot] == s.me
                             ? 'Your frame'
                             : s.home?[slot] == null
-                            ? 'Waiting for your partner'
-                            : 'Your partner’s frame',
+                                ? 'Waiting for your partner'
+                                : 'Your partner’s frame',
                         textAlign: TextAlign.center,
                         style: const TextStyle(fontSize: 12),
                       ),
@@ -434,8 +434,8 @@ class PetAccessoriesPanel extends StatelessWidget {
                               equipped
                                   ? 'Wearing'
                                   : owned
-                                  ? 'Wear'
-                                  : '${item.price}',
+                                      ? 'Wear'
+                                      : '${item.price}',
                             ),
                           ],
                         ),

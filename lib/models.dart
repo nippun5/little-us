@@ -107,12 +107,14 @@ const questions = [
     'Yoga or stretching',
     'I prefer not to exercise',
   ]),
-  Question('If I won the lottery tomorrow, what is the very first thing I would buy?', [
-    'A new house',
-    'A luxury car',
-    'A first-class plane ticket',
-    'Pay off all my debt',
-  ]),
+  Question(
+      'If I won the lottery tomorrow, what is the very first thing I would buy?',
+      [
+        'A new house',
+        'A luxury car',
+        'A first-class plane ticket',
+        'Pay off all my debt',
+      ]),
   Question('What is my favorite type of weather?', [
     'Sunny and hot',
     'Crisp and cool',
@@ -167,12 +169,14 @@ const questions = [
     'I toss and turn all night',
     'I talk or walk in my sleep',
   ]),
-  Question('If I had to eat one cuisine for the rest of my life, what would it be?', [
-    'Mexican',
-    'Italian',
-    'Asian (Chinese, Thai, Japanese)',
-    'Classic American',
-  ]),
+  Question(
+      'If I had to eat one cuisine for the rest of my life, what would it be?',
+      [
+        'Mexican',
+        'Italian',
+        'Asian (Chinese, Thai, Japanese)',
+        'Classic American',
+      ]),
   Question('What is my favorite part of our relationship?', [
     'Our deep conversations',
     'How much we laugh together',
@@ -329,7 +333,8 @@ const questions = [
     'An experience like a trip or concert',
     'Something highly practical I needed',
   ]),
-  Question('How do I usually behave at parties where I do not know many people?', [
+  Question(
+      'How do I usually behave at parties where I do not know many people?', [
     'I stick right by your side the whole time',
     'I awkwardly stand in the corner on my phone',
     'I introduce myself to everyone',
@@ -515,7 +520,8 @@ const questions = [
     'Croissants',
     'Whole wheat',
   ]),
-  Question('If I had a completely free day, what is the first thing I would do?', [
+  Question(
+      'If I had a completely free day, what is the first thing I would do?', [
     'Sleep in as late as possible',
     'Go outside for a hike or walk',
     'Play video games all day',

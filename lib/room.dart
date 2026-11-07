@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
 Color sofaColor(String theme) => switch (theme) {
-  'lilac' => const Color(0xFFB8A3D5),
-  'mint' => const Color(0xFF8EB9A4),
-  'rose' => const Color(0xFFD890A6),
-  _ => const Color(0xFFEDAA8F),
-};
+      'lilac' => const Color(0xFFB8A3D5),
+      'mint' => const Color(0xFF8EB9A4),
+      'rose' => const Color(0xFFD890A6),
+      _ => const Color(0xFFEDAA8F),
+    };
 
 class Room extends StatelessWidget {
   const Room({
@@ -19,65 +19,65 @@ class Room extends StatelessWidget {
   final VoidCallback? onPlay, onNote, onDate;
   @override
   Widget build(BuildContext context) => AspectRatio(
-    aspectRatio: 1.35,
-    child: LayoutBuilder(
-      builder: (context, c) => Stack(
-        children: [
-          Positioned.fill(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(28),
-              child: CustomPaint(painter: RoomPainter(theme)),
-            ),
-          ),
-          Positioned(
-            left: c.maxWidth * .39,
-            top: c.maxHeight * .62,
-            width: c.maxWidth * .25,
-            height: c.maxHeight * .26,
-            child: Semantics(
-              label: 'Play Know me better',
-              button: true,
-              child: Tooltip(
-                message: 'Play together',
-                child: InkWell(
-                  onTap: onPlay,
-                  borderRadius: BorderRadius.circular(20),
+        aspectRatio: 1.35,
+        child: LayoutBuilder(
+          builder: (context, c) => Stack(
+            children: [
+              Positioned.fill(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(28),
+                  child: CustomPaint(painter: RoomPainter(theme)),
                 ),
               ),
-            ),
-          ),
-          Positioned(
-            left: c.maxWidth * .73,
-            top: c.maxHeight * .24,
-            width: c.maxWidth * .16,
-            height: c.maxHeight * .22,
-            child: Semantics(
-              label: 'Leave a love note',
-              button: true,
-              child: Tooltip(
-                message: 'Leave a note',
-                child: InkWell(onTap: onNote),
+              Positioned(
+                left: c.maxWidth * .39,
+                top: c.maxHeight * .62,
+                width: c.maxWidth * .25,
+                height: c.maxHeight * .26,
+                child: Semantics(
+                  label: 'Play Know me better',
+                  button: true,
+                  child: Tooltip(
+                    message: 'Play together',
+                    child: InkWell(
+                      onTap: onPlay,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                  ),
+                ),
               ),
-            ),
-          ),
-          Positioned(
-            left: c.maxWidth * .16,
-            top: c.maxHeight * .18,
-            width: c.maxWidth * .16,
-            height: c.maxHeight * .20,
-            child: Semantics(
-              label: 'Set our next meeting',
-              button: true,
-              child: Tooltip(
-                message: 'Our next meeting',
-                child: InkWell(onTap: onDate),
+              Positioned(
+                left: c.maxWidth * .73,
+                top: c.maxHeight * .24,
+                width: c.maxWidth * .16,
+                height: c.maxHeight * .22,
+                child: Semantics(
+                  label: 'Leave a love note',
+                  button: true,
+                  child: Tooltip(
+                    message: 'Leave a note',
+                    child: InkWell(onTap: onNote),
+                  ),
+                ),
               ),
-            ),
+              Positioned(
+                left: c.maxWidth * .16,
+                top: c.maxHeight * .18,
+                width: c.maxWidth * .16,
+                height: c.maxHeight * .20,
+                child: Semantics(
+                  label: 'Set our next meeting',
+                  button: true,
+                  child: Tooltip(
+                    message: 'Our next meeting',
+                    child: InkWell(onTap: onDate),
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
-    ),
-  );
+        ),
+      );
 }
 
 class RoomPainter extends CustomPainter {

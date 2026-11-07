@@ -7,10 +7,11 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'models.dart';
 import 'fridge_widget.dart';
 import 'accessories.dart';
+import 'garage_catalog.dart';
 
 class AppStore extends ChangeNotifier {
   AppStore(this.prefs, {this.client, FridgeBridge? fridgeBridge})
-    : fridgeBridge = fridgeBridge ?? NativeFridgeBridge();
+      : fridgeBridge = fridgeBridge ?? NativeFridgeBridge();
   final FridgeBridge fridgeBridge;
   final SharedPreferences prefs;
   final SupabaseClient? client;
@@ -22,6 +23,19 @@ class AppStore extends ChangeNotifier {
   Map<String, dynamic>? pet;
   List<String> petCareToday = [];
   String currentRoom = 'living';
+  Map<String, dynamic> garage = freshGarageState();
+  List<String> get garageOwned =>
+      List<String>.from(garage['owned'] ?? garageDefaultOwned);
+  Map<String, String> get garageEquipped {
+    final raw = Map<String, dynamic>.from(garage['equipped'] ?? const {});
+    return {
+      ...garageDefaultEquipped,
+      for (final entry in raw.entries)
+        if (garageItemById(entry.value.toString())?.group == entry.key)
+          entry.key: entry.value.toString(),
+    };
+  }
+
   String? widgetError;
   List<Map<String, dynamic>> frames = [];
   final Map<String, Uint8List> frameBytes = {};
@@ -118,9 +132,7 @@ class AppStore extends ChangeNotifier {
       frameBytes[me] = jpeg;
     } else {
       final path = '${home!['id']}/$me.jpg';
-      await client!.storage
-          .from('bedroom-frames')
-          .uploadBinary(
+      await client!.storage.from('bedroom-frames').uploadBinary(
             path,
             jpeg,
             fileOptions: const FileOptions(
@@ -215,13 +227,14 @@ class AppStore extends ChangeNotifier {
         'living': 'Living room',
         'bedroom': 'Bedroom',
         'garden': 'Garden',
+        'garage': 'Garage',
       }[currentRoom] ??
       'Living room';
   String? get widgetScope => home == null
       ? null
       : demo
-      ? 'demo'
-      : '${client?.auth.currentUser?.id}:${home!['id']}';
+          ? 'demo'
+          : '${client?.auth.currentUser?.id}:${home!['id']}';
   bool get widgetEnabled =>
       widgetScope != null &&
       prefs.getBool('fridge_enabled_$widgetScope') == true;
@@ -287,12 +300,12 @@ class AppStore extends ChangeNotifier {
       error = e is AuthException
           ? e.message
           : e is PostgrestException
-          ? e.message
-          : e is StorageException
-          ? 'Photo storage: ${e.message}'
-          : e is FormatException
-          ? e.message
-          : 'Could not connect. Check your connection and try again.';
+              ? e.message
+              : e is StorageException
+                  ? 'Photo storage: ${e.message}'
+                  : e is FormatException
+                      ? e.message
+                      : 'Could not connect. Check your connection and try again.';
     } finally {
       busy = false;
       notifyListeners();
@@ -303,6 +316,7 @@ class AppStore extends ChangeNotifier {
     _generation++;
     _clearPhotos();
     demo = true;
+    garage = freshGarageState();
     final raw = prefs.getString('demo_state');
     if (raw != null) {
       final d = jsonDecode(raw);
@@ -310,9 +324,11 @@ class AppStore extends ChangeNotifier {
       notes = List<Map<String, dynamic>>.from(d['notes']);
       rounds = List<Map<String, dynamic>>.from(d['rounds']);
       pet = d['pet'] == null ? null : Map<String, dynamic>.from(d['pet']);
-      petCareToday = d['care_day'] == day
-          ? List<String>.from(d['pet_care'] ?? [])
-          : [];
+      garage = d['garage'] == null
+          ? freshGarageState()
+          : Map<String, dynamic>.from(d['garage']);
+      petCareToday =
+          d['care_day'] == day ? List<String>.from(d['pet_care'] ?? []) : [];
     } else {
       home = {
         'a': 'demo-a',
@@ -354,6 +370,7 @@ class AppStore extends ChangeNotifier {
           'notes': notes,
           'rounds': rounds,
           'pet': pet,
+          'garage': garage,
           'pet_care': petCareToday,
           'care_day': day,
         }),
@@ -363,9 +380,8 @@ class AppStore extends ChangeNotifier {
   }
 
   Future<void> refresh() {
-    final task = _refreshQueue
-        .catchError((Object _) {})
-        .then((_) => _refreshNow());
+    final task =
+        _refreshQueue.catchError((Object _) {}).then((_) => _refreshNow());
     _refreshQueue = task;
     return task;
   }
@@ -394,6 +410,7 @@ class AppStore extends ChangeNotifier {
         rounds = [];
         pet = null;
         petCareToday = [];
+        garage = freshGarageState();
         _restoreRoom();
         await syncFridgeWidget();
         notifyListeners();
@@ -407,13 +424,23 @@ class AppStore extends ChangeNotifier {
           userId != client?.auth.currentUser?.id) {
         return;
       }
-      home = data['home'] == null
-          ? null
-          : Map<String, dynamic>.from(data['home']);
+      home =
+          data['home'] == null ? null : Map<String, dynamic>.from(data['home']);
       notes = List<Map<String, dynamic>>.from(data['notes'] ?? []);
       rounds = List<Map<String, dynamic>>.from(data['rounds'] ?? []);
       pet = data['pet'] == null ? null : Map<String, dynamic>.from(data['pet']);
       petCareToday = List<String>.from(data['pet_care_today'] ?? []);
+      if (home == null) {
+        garage = freshGarageState();
+      } else {
+        final result = await client!
+            .rpc('get_garage')
+            .timeout(const Duration(seconds: 15));
+        if (generation != _generation ||
+            demo ||
+            userId != client?.auth.currentUser?.id) return;
+        garage = Map<String, dynamic>.from(result as Map);
+      }
       day = data['day'];
       if (home == null || _photoScope != widgetScope) _clearPhotos();
       await refreshFrames();
@@ -593,6 +620,7 @@ class AppStore extends ChangeNotifier {
     error = null;
     pet = null;
     petCareToday = [];
+    garage = freshGarageState();
     currentRoom = 'living';
     _lastScope = null;
     await syncFridgeWidget();
@@ -625,6 +653,7 @@ class AppStore extends ChangeNotifier {
     rounds = [];
     pet = null;
     petCareToday = [];
+    garage = freshGarageState();
     await syncFridgeWidget();
     await client!.auth.signOut(scope: SignOutScope.local);
     await refresh();
@@ -648,7 +677,7 @@ class AppStore extends ChangeNotifier {
   }
 
   Future<void> unlockRoom(String room) async {
-    final cost = const {'bedroom': 80, 'garden': 120}[room];
+    final cost = const {'bedroom': 80, 'garden': 120, 'garage': 120}[room];
     if (cost == null) throw const PostgrestException(message: 'Unknown room.');
     if (demo) {
       if (!unlockedRooms.contains(room)) {
@@ -662,10 +691,43 @@ class AppStore extends ChangeNotifier {
         await persist();
       }
     } else {
-      await client!.rpc('unlock_room', params: {'room': room});
+      if (room == 'garage') {
+        await client!.rpc('unlock_garage');
+      } else {
+        await client!.rpc('unlock_room', params: {'room': room});
+      }
       await refresh();
     }
     if (unlockedRooms.contains(room)) await selectRoom(room);
+  }
+
+  Future<void> equipGarageItem(String itemId) async {
+    final item = garageItemById(itemId);
+    if (item == null) {
+      throw const PostgrestException(message: 'Unknown garage accessory.');
+    }
+    if (!unlockedRooms.contains('garage')) {
+      throw const PostgrestException(message: 'Unlock the garage first.');
+    }
+    if (demo) {
+      final oldOwned = garageOwned;
+      final price = oldOwned.contains(itemId) ? 0 : item.price;
+      if (coins < price) {
+        throw const PostgrestException(
+          message: 'Complete more rounds together to earn hearts.',
+        );
+      }
+      home!['coins'] = coins - price;
+      if (!oldOwned.contains(itemId)) {
+        garage['owned'] = [...oldOwned, itemId];
+      }
+      garage['equipped'] = {...garageEquipped, item.group: itemId};
+      await persist();
+    } else {
+      await client!.rpc('equip_garage_item', params: {'item': itemId});
+      await refresh();
+    }
+    notifyListeners();
   }
 
   Future<void> adoptPet(String kind, String name) async {

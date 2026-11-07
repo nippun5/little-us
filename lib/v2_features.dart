@@ -7,36 +7,36 @@ const _ink = Color(0xFF443747),
     _lilac = Color(0xFFEDE3F6),
     _mint = Color(0xFFE2EFE5);
 Widget _title(String t) => Text(
-  t,
-  style: const TextStyle(
-    fontFamily: 'Lora',
-    fontSize: 23,
-    fontWeight: FontWeight.w600,
-    color: _ink,
-  ),
-);
+      t,
+      style: const TextStyle(
+        fontFamily: 'Lora',
+        fontSize: 23,
+        fontWeight: FontWeight.w600,
+        color: _ink,
+      ),
+    );
 Widget _panel(Widget child, {Color color = _lilac}) => Container(
-  width: double.infinity,
-  padding: const EdgeInsets.all(20),
-  decoration: BoxDecoration(
-    color: color,
-    borderRadius: BorderRadius.circular(24),
-  ),
-  child: child,
-);
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: child,
+    );
 
 class RoomPicker extends StatelessWidget {
   const RoomPicker({super.key, required this.store});
   final AppStore store;
   @override
   Widget build(BuildContext context) => Wrap(
-    spacing: 8,
-    runSpacing: 6,
-    children:
-        const {
+        spacing: 8,
+        runSpacing: 6,
+        children: const {
           'living': 'Living room',
           'bedroom': 'Bedroom',
           'garden': 'Garden',
+          'garage': 'Garage',
         }.entries.map((entry) {
           final unlocked = store.unlockedRooms.contains(entry.key);
           return ChoiceChip(
@@ -47,6 +47,7 @@ class RoomPicker extends StatelessWidget {
                   ? switch (entry.key) {
                       'bedroom' => Icons.bed_outlined,
                       'garden' => Icons.local_florist_outlined,
+                      'garage' => Icons.directions_car_outlined,
                       _ => Icons.weekend_outlined,
                     }
                   : Icons.lock_outline,
@@ -87,7 +88,7 @@ class RoomPicker extends StatelessWidget {
                   },
           );
         }).toList(),
-  );
+      );
 }
 
 class PetPanel extends StatelessWidget {
@@ -187,8 +188,8 @@ class PetPanel extends StatelessWidget {
                     store.petCareToday.contains(action)
                         ? '${action == 'feed' ? 'Fed' : 'Played'} today'
                         : action == 'feed'
-                        ? 'Feed · +2 XP'
-                        : 'Play · +3 XP',
+                            ? 'Feed · +2 XP'
+                            : 'Play · +3 XP',
                   ),
                 ),
             ],
@@ -241,51 +242,53 @@ class _PetDialogState extends State<_PetDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: Text(widget.pet == null ? 'Meet your little friend' : 'A new name'),
-    content: SingleChildScrollView(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (widget.pet == null) ...[
-            SizedBox(width: 120, height: 120, child: PetPortrait(kind: kind)),
-            Wrap(
-              spacing: 12,
-              children: [
-                for (final value in ['cat', 'dog'])
-                  ChoiceChip(
-                    label: Text(value == 'cat' ? 'Cat' : 'Dog'),
-                    selected: kind == value,
-                    onSelected: (_) => setState(() => kind = value),
-                  ),
+        title:
+            Text(widget.pet == null ? 'Meet your little friend' : 'A new name'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (widget.pet == null) ...[
+                SizedBox(
+                    width: 120, height: 120, child: PetPortrait(kind: kind)),
+                Wrap(
+                  spacing: 12,
+                  children: [
+                    for (final value in ['cat', 'dog'])
+                      ChoiceChip(
+                        label: Text(value == 'cat' ? 'Cat' : 'Dog'),
+                        selected: kind == value,
+                        onSelected: (_) => setState(() => kind = value),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 18),
               ],
-            ),
-            const SizedBox(height: 18),
-          ],
-          TextField(
-            controller: name,
-            maxLength: 20,
-            decoration: const InputDecoration(labelText: 'Pet name'),
-            onChanged: (_) => setState(() {}),
+              TextField(
+                controller: name,
+                maxLength: 20,
+                decoration: const InputDecoration(labelText: 'Pet name'),
+                onChanged: (_) => setState(() {}),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: name.text.trim().isEmpty
+                ? null
+                : () => Navigator.pop(context, {
+                      'kind': kind,
+                      'name': name.text.trim(),
+                    }),
+            child: Text(widget.pet == null ? 'Adopt for free' : 'Save name'),
           ),
         ],
-      ),
-    ),
-    actions: [
-      TextButton(
-        onPressed: () => Navigator.pop(context),
-        child: const Text('Cancel'),
-      ),
-      FilledButton(
-        onPressed: name.text.trim().isEmpty
-            ? null
-            : () => Navigator.pop(context, {
-                'kind': kind,
-                'name': name.text.trim(),
-              }),
-        child: Text(widget.pet == null ? 'Adopt for free' : 'Save name'),
-      ),
-    ],
-  );
+      );
 }
 
 Future<bool> confirmWidgetSharing(BuildContext context) async =>
@@ -333,115 +336,115 @@ class FridgeWidgetPanel extends StatelessWidget {
   final AppStore store;
   @override
   Widget build(BuildContext context) => _panel(
-    Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(Icons.widgets_outlined, color: _coral),
-            const SizedBox(width: 10),
-            Expanded(child: _title('A note, closer to you.')),
-          ],
-        ),
-        const SizedBox(height: 10),
-        const Text('Keep a little love note on your phone’s home screen.'),
-        const SizedBox(height: 8),
-        if (!store.fridgeBridge.supported)
-          const Text(
-            'Available on Android and iOS. The web demo does not install system widgets.',
-            style: TextStyle(fontSize: 12),
-          )
-        else ...[
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Show notes in the widget'),
-            value: store.widgetEnabled,
-            onChanged: store.busy
-                ? null
-                : (v) async {
-                    if (v && !await confirmWidgetSharing(context)) return;
-                    await store.run(() => store.setWidgetEnabled(v));
-                  },
-          ),
-          if (store.widgetEnabled) ...[
-            Text(
-              store.pinnedNoteId == null
-                  ? 'Showing: latest note from your partner'
-                  : 'Showing: your pinned note (or latest partner note if deleted)',
-              style: const TextStyle(fontSize: 12),
-            ),
-            if (store.widgetNote != null)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                child: Text(
-                  store.widgetNote!['body'],
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontFamily: 'Lora', fontSize: 18),
-                ),
-              ),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
+            Row(
               children: [
-                OutlinedButton(
-                  onPressed: store.busy
-                      ? null
-                      : () => store.run(() => store.pinWidgetNote(null)),
-                  child: const Text('Use latest partner note'),
-                ),
-                FilledButton.icon(
-                  onPressed: store.busy
-                      ? null
-                      : () async {
-                          try {
-                            final requested = await store.fridgeBridge
-                                .requestPin();
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    requested
-                                        ? 'Confirm the widget on your home screen.'
-                                        : 'Long-press your home screen, open Widgets, then choose Little us. On iPhone, tap Edit → Add Widget.',
-                                  ),
-                                ),
-                              );
-                            }
-                          } catch (_) {
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Could not open the widget picker. Add Little us from your home-screen widget gallery.',
-                                  ),
-                                ),
-                              );
-                            }
-                          }
-                        },
-                  icon: const Icon(Icons.add_to_home_screen, size: 17),
-                  label: const Text('Add widget'),
-                ),
+                const Icon(Icons.widgets_outlined, color: _coral),
+                const SizedBox(width: 10),
+                Expanded(child: _title('A note, closer to you.')),
               ],
             ),
-          ],
-          if (store.widgetError != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 10),
-              child: Text(
-                store.widgetError!,
-                style: const TextStyle(color: _coral, fontSize: 12),
+            const SizedBox(height: 10),
+            const Text('Keep a little love note on your phone’s home screen.'),
+            const SizedBox(height: 8),
+            if (!store.fridgeBridge.supported)
+              const Text(
+                'Available on Android and iOS. The web demo does not install system widgets.',
+                style: TextStyle(fontSize: 12),
+              )
+            else ...[
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Show notes in the widget'),
+                value: store.widgetEnabled,
+                onChanged: store.busy
+                    ? null
+                    : (v) async {
+                        if (v && !await confirmWidgetSharing(context)) return;
+                        await store.run(() => store.setWidgetEnabled(v));
+                      },
               ),
+              if (store.widgetEnabled) ...[
+                Text(
+                  store.pinnedNoteId == null
+                      ? 'Showing: latest note from your partner'
+                      : 'Showing: your pinned note (or latest partner note if deleted)',
+                  style: const TextStyle(fontSize: 12),
+                ),
+                if (store.widgetNote != null)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Text(
+                      store.widgetNote!['body'],
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontFamily: 'Lora', fontSize: 18),
+                    ),
+                  ),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    OutlinedButton(
+                      onPressed: store.busy
+                          ? null
+                          : () => store.run(() => store.pinWidgetNote(null)),
+                      child: const Text('Use latest partner note'),
+                    ),
+                    FilledButton.icon(
+                      onPressed: store.busy
+                          ? null
+                          : () async {
+                              try {
+                                final requested =
+                                    await store.fridgeBridge.requestPin();
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        requested
+                                            ? 'Confirm the widget on your home screen.'
+                                            : 'Long-press your home screen, open Widgets, then choose Little us. On iPhone, tap Edit → Add Widget.',
+                                      ),
+                                    ),
+                                  );
+                                }
+                              } catch (_) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Could not open the widget picker. Add Little us from your home-screen widget gallery.',
+                                      ),
+                                    ),
+                                  );
+                                }
+                              }
+                            },
+                      icon: const Icon(Icons.add_to_home_screen, size: 17),
+                      label: const Text('Add widget'),
+                    ),
+                  ],
+                ),
+              ],
+              if (store.widgetError != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 10),
+                  child: Text(
+                    store.widgetError!,
+                    style: const TextStyle(color: _coral, fontSize: 12),
+                  ),
+                ),
+            ],
+            const SizedBox(height: 12),
+            const Text(
+              'Refreshes when this app syncs, not live while closed. The widget shows its last sync time. Sign out or turn this off to clear the saved note.',
+              style: TextStyle(fontSize: 12, height: 1.5),
             ),
-        ],
-        const SizedBox(height: 12),
-        const Text(
-          'Refreshes when this app syncs, not live while closed. The widget shows its last sync time. Sign out or turn this off to clear the saved note.',
-          style: TextStyle(fontSize: 12, height: 1.5),
+          ],
         ),
-      ],
-    ),
-    color: const Color(0xFFFFEDB9),
-  );
+        color: const Color(0xFFFFEDB9),
+      );
 }
