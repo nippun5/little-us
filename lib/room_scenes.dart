@@ -22,44 +22,45 @@ class RoomScene extends StatelessWidget {
   final VoidCallback? onPlay, onNote, onDate;
   @override
   Widget build(BuildContext context) => Stack(
-    children: [
-      if (room == 'living')
-        Room(theme: theme, onPlay: onPlay, onNote: onNote, onDate: onDate)
-      else
-        Semantics(
-          label: room == 'bedroom' ? 'Our cozy bedroom' : 'Our sunny garden',
-          image: true,
-          child: AspectRatio(
-            aspectRatio: 1.35,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(28),
-              child: CustomPaint(painter: ExtraRoomPainter(room, theme)),
+        children: [
+          if (room == 'living')
+            Room(theme: theme, onPlay: onPlay, onNote: onNote, onDate: onDate)
+          else
+            Semantics(
+              label:
+                  room == 'bedroom' ? 'Our cozy bedroom' : 'Our sunny garden',
+              image: true,
+              child: AspectRatio(
+                aspectRatio: 1.35,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(28),
+                  child: CustomPaint(painter: ExtraRoomPainter(room, theme)),
+                ),
+              ),
             ),
-          ),
-        ),
-      if (room == 'bedroom' && bedroomFrames != null)
-        Positioned.fill(
-          child: Align(
-            alignment: const Alignment(-.38, -.83),
-            child: FractionallySizedBox(
-              widthFactor: .48,
-              heightFactor: .25,
-              child: bedroomFrames,
+          if (room == 'bedroom' && bedroomFrames != null)
+            Positioned.fill(
+              child: Align(
+                alignment: const Alignment(-.38, -.83),
+                child: FractionallySizedBox(
+                  widthFactor: .48,
+                  heightFactor: .25,
+                  child: bedroomFrames,
+                ),
+              ),
             ),
-          ),
-        ),
-      if (petKind != null)
-        Positioned(
-          left: 16,
-          bottom: 6,
-          child: SizedBox(
-            width: 78,
-            height: 83,
-            child: PetPortrait(kind: petKind!, accessory: accessory),
-          ),
-        ),
-    ],
-  );
+          if (petKind != null)
+            Positioned(
+              left: 16,
+              bottom: 6,
+              child: SizedBox(
+                width: 78,
+                height: 83,
+                child: PetPortrait(kind: petKind!, accessory: accessory),
+              ),
+            ),
+        ],
+      );
 }
 
 class PetPortrait extends StatefulWidget {
@@ -81,29 +82,29 @@ class _PetPortraitState extends State<PetPortrait> {
 
   @override
   Widget build(BuildContext context) => Semantics(
-    label: 'Our ${widget.kind}. Tap to say hello.',
-    button: true,
-    child: GestureDetector(
-      onTap: () {
-        setState(() => happy = true);
-        reset?.cancel();
-        reset = Timer(const Duration(milliseconds: 650), () {
-          if (mounted) setState(() => happy = false);
-        });
-      },
-      child: AnimatedScale(
-        scale: happy ? 1.12 : 1,
-        duration: MediaQuery.disableAnimationsOf(context)
-            ? Duration.zero
-            : const Duration(milliseconds: 220),
-        curve: Curves.easeOutBack,
-        child: CustomPaint(
-          painter: PetPainter(widget.kind, happy, widget.accessory),
-          size: const Size(120, 120),
+        label: 'Our ${widget.kind}. Tap to say hello.',
+        button: true,
+        child: GestureDetector(
+          onTap: () {
+            setState(() => happy = true);
+            reset?.cancel();
+            reset = Timer(const Duration(milliseconds: 650), () {
+              if (mounted) setState(() => happy = false);
+            });
+          },
+          child: AnimatedScale(
+            scale: happy ? 1.12 : 1,
+            duration: MediaQuery.disableAnimationsOf(context)
+                ? Duration.zero
+                : const Duration(milliseconds: 220),
+            curve: Curves.easeOutBack,
+            child: CustomPaint(
+              painter: PetPainter(widget.kind, happy, widget.accessory),
+              size: const Size(120, 120),
+            ),
+          ),
         ),
-      ),
-    ),
-  );
+      );
 }
 
 class PetPainter extends CustomPainter {
