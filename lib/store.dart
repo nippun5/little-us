@@ -634,6 +634,8 @@ class AppStore extends ChangeNotifier {
       await prefs.remove('fridge_pin_demo');
       await prefs.remove('room_demo');
       await prefs.remove('demo_state');
+      await prefs.remove('little_us_avatar_demo_a_v1');
+      await prefs.remove('little_us_avatar_demo_b_v1');
       await signOut();
     } else {
       await _deleteHomeWithPhotos(account: false);
