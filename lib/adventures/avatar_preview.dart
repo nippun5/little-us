@@ -1,4 +1,5 @@
 import 'dart:ui' as ui;
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'avatar_model.dart';
 
@@ -6,19 +7,23 @@ import 'avatar_model.dart';
 /// shadows and layered accessories. In a later milestone replace only this
 /// widget with multi-angle animated sprite assets; keep CoupleAvatar IDs.
 class AvatarPreview extends StatelessWidget {
-  const AvatarPreview({super.key, required this.avatar});
+  const AvatarPreview({super.key, required this.avatar, this.walkPhase = 0});
   final CoupleAvatar avatar;
+
+  /// Radians of the current walk cycle. 0 means a standing character.
+  final double walkPhase;
 
   @override
   Widget build(BuildContext context) => AspectRatio(
         aspectRatio: 3 / 4,
-        child: CustomPaint(painter: _AvatarPainter(avatar)),
+        child: CustomPaint(painter: _AvatarPainter(avatar, walkPhase)),
       );
 }
 
 class _AvatarPainter extends CustomPainter {
-  const _AvatarPainter(this.avatar);
+  const _AvatarPainter(this.avatar, this.walkPhase);
   final CoupleAvatar avatar;
+  final double walkPhase;
 
   Paint _solid(Color c) => Paint()
     ..color = c
@@ -59,24 +64,31 @@ class _AvatarPainter extends CustomPainter {
       canvas.translate(-120, 0);
     }
 
+    // Small opposing leg/foot strides; the same appearance is reused in the
+    // editor with walkPhase == 0 (standing).
+    final stride = math.sin(walkPhase) * 7;
     // Grounding shadow and legs.
     _oval(
         canvas, const Rect.fromLTWH(51, 287, 138, 18), const Color(0x33746A72));
     final pants = avatar.outfit == 'summer'
         ? const Color(0xFFC1A0B9)
         : const Color(0xFF58647D);
-    _round(canvas, const Rect.fromLTWH(84, 226, 31, 60), 12,
-        _shaded(const Rect.fromLTWH(84, 226, 31, 60), pants));
-    _round(canvas, const Rect.fromLTWH(127, 226, 31, 60), 12,
-        _shaded(const Rect.fromLTWH(127, 226, 31, 60), pants));
-    _round(canvas, const Rect.fromLTWH(74, 279, 46, 21), 11,
-        _shaded(const Rect.fromLTWH(74, 279, 46, 21), const Color(0xFFF7F3F1)));
+    _round(canvas, Rect.fromLTWH(84 + stride, 226, 31, 60), 12,
+        _shaded(Rect.fromLTWH(84 + stride, 226, 31, 60), pants));
+    _round(canvas, Rect.fromLTWH(127 - stride, 226, 31, 60), 12,
+        _shaded(Rect.fromLTWH(127 - stride, 226, 31, 60), pants));
     _round(
         canvas,
-        const Rect.fromLTWH(125, 279, 46, 21),
+        Rect.fromLTWH(74 + stride, 279, 46, 21),
         11,
         _shaded(
-            const Rect.fromLTWH(125, 279, 46, 21), const Color(0xFFF7F3F1)));
+            Rect.fromLTWH(74 + stride, 279, 46, 21), const Color(0xFFF7F3F1)));
+    _round(
+        canvas,
+        Rect.fromLTWH(125 - stride, 279, 46, 21),
+        11,
+        _shaded(
+            Rect.fromLTWH(125 - stride, 279, 46, 21), const Color(0xFFF7F3F1)));
 
     // Back hair first: bob / long silhouettes frame the face.
     if (avatar.hairStyle == 'long' || avatar.hairStyle == 'bob') {
@@ -255,5 +267,5 @@ class _AvatarPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _AvatarPainter oldDelegate) =>
-      oldDelegate.avatar != avatar;
+      oldDelegate.avatar != avatar || oldDelegate.walkPhase != walkPhase;
 }

@@ -11,6 +11,7 @@ import 'v3_features.dart';
 import 'garage_scene.dart';
 import 'garage_panel.dart';
 import 'adventures/avatar_creator_screen.dart';
+import 'adventures/sunset_beach_screen.dart';
 
 const ink = Color(0xFF443747),
     muted = Color(0xFF817580),
@@ -597,7 +598,17 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
             icon: const Icon(Icons.people_alt_rounded),
             label: const Text('Create our avatars'),
           ),
-          const SizedBox(height: 16),
+        if (s.currentRoom == 'garage')
+          OutlinedButton.icon(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => SunsetBeachScreen(store: s),
+              ),
+            ),
+            icon: const Icon(Icons.beach_access_rounded),
+            label: const Text('Travel to Sunset Beach'),
+          ),
+        const SizedBox(height: 16),
         PetPanel(store: s),
         PetAccessoriesPanel(store: s),
         const SizedBox(height: 20),

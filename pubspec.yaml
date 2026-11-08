@@ -20,6 +20,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/
+    - assets/adventures/sunset_beach.jpg
   fonts:
     - family: Nunito
       fonts:
