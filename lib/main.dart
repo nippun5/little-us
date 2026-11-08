@@ -597,6 +597,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
             icon: const Icon(Icons.people_alt_rounded),
             label: const Text('Create our avatars'),
           ),
+          const SizedBox(height: 16),
         PetPanel(store: s),
         PetAccessoriesPanel(store: s),
         const SizedBox(height: 20),
