@@ -1,9 +1,14 @@
+import 'pets/pet_audio.dart';
+import 'pets/pet_movement.dart';
+import 'package:flutter/scheduler.dart';
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'room.dart';
 
-class RoomScene extends StatelessWidget {
+/// Rooms share one lightweight pet controller. Navigation remains local-only:
+/// users don't spend hearts or modify the persisted pet to make it move.
+class RoomScene extends StatefulWidget {
   const RoomScene({
     super.key,
     required this.room,
@@ -15,51 +20,200 @@ class RoomScene extends StatelessWidget {
     this.onNote,
     this.onDate,
   });
+
   final String room, theme;
   final String? petKind;
   final String accessory;
   final Widget? bedroomFrames;
   final VoidCallback? onPlay, onNote, onDate;
+
   @override
-  Widget build(BuildContext context) => Stack(
-        children: [
-          if (room == 'living')
-            Room(theme: theme, onPlay: onPlay, onNote: onNote, onDate: onDate)
-          else
-            Semantics(
-              label:
-                  room == 'bedroom' ? 'Our cozy bedroom' : 'Our sunny garden',
-              image: true,
-              child: AspectRatio(
-                aspectRatio: 1.35,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(28),
-                  child: CustomPaint(painter: ExtraRoomPainter(room, theme)),
+  State<RoomScene> createState() => _RoomSceneState();
+}
+
+class _RoomSceneState extends State<RoomScene>
+    with SingleTickerProviderStateMixin {
+  late final Ticker _ticker;
+  final PetAudio _audio = PetAudio();
+  PetPoint _position = PetMovement.initial;
+  PetPoint _destination = PetMovement.initial;
+  Duration? _lastTick;
+  Timer? _happyTimer;
+  double _stepPhase = 0;
+  bool _walking = false;
+  bool _happy = false;
+  bool _facingLeft = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _ticker = createTicker(_tick);
+  }
+
+  @override
+  void didUpdateWidget(covariant RoomScene oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.room != oldWidget.room || widget.petKind != oldWidget.petKind) {
+      _ticker.stop();
+      _lastTick = null;
+      _happyTimer?.cancel();
+      _position = PetMovement.initial;
+      _destination = PetMovement.initial;
+      _walking = false;
+      _happy = false;
+    }
+  }
+
+  void _tick(Duration elapsed) {
+    if (!mounted || !_walking) return;
+    final dt = _lastTick == null
+        ? 0.0
+        : (elapsed - _lastTick!).inMicroseconds / 1000000.0;
+    _lastTick = elapsed;
+    // Clamping dt prevents teleporting after app pause / frame stalls.
+    final next = PetMovement.stepToward(
+        _position, _destination, .34 * dt.clamp(0.0, 0.05));
+    final arrived = next.distanceTo(_destination) < .002;
+    setState(() {
+      _position = next;
+      _walking = !arrived;
+      _stepPhase += dt * 19;
+      if (arrived) _happy = true;
+    });
+    if (arrived) {
+      _ticker.stop();
+      _lastTick = null;
+      _resetHappySoon();
+    }
+  }
+
+  void _resetHappySoon() {
+    _happyTimer?.cancel();
+    _happyTimer = Timer(const Duration(milliseconds: 650), () {
+      if (mounted) setState(() => _happy = false);
+    });
+  }
+
+  void _moveTo(PetPoint position) {
+    if (widget.petKind == null) return;
+    final target = PetMovement.walkable(widget.room, position);
+    _audio.react(widget.petKind!);
+    _happyTimer?.cancel();
+    final reducedMotion = MediaQuery.disableAnimationsOf(context);
+    setState(() {
+      _destination = target;
+      _facingLeft = target.x < _position.x;
+      _walking = !reducedMotion && _position.distanceTo(target) > .003;
+      _happy = !_walking;
+      if (reducedMotion) _position = target;
+    });
+    if (_walking) {
+      if (!_ticker.isActive) {
+        _lastTick = null;
+        _ticker.start();
+      }
+    } else {
+      _ticker.stop();
+      _lastTick = null;
+      _resetHappySoon();
+    }
+  }
+
+  void _petTapped() {
+    if (widget.petKind == null) return;
+    _audio.react(widget.petKind!);
+    setState(() => _happy = true);
+    _resetHappySoon();
+  }
+
+  @override
+  void dispose() {
+    _ticker.dispose();
+    _happyTimer?.cancel();
+    _audio.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AspectRatio(
+        aspectRatio: 1.35,
+        child: LayoutBuilder(builder: (context, constraints) {
+          final w = constraints.maxWidth;
+          final h = constraints.maxHeight;
+          final petW = (w * .205).clamp(58.0, 82.0).toDouble();
+          final petH = petW * 1.065;
+          return GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTapUp: widget.petKind == null
+                ? null
+                : (details) => _moveTo(PetPoint(
+                      details.localPosition.dx / w,
+                      details.localPosition.dy / h,
+                    )),
+            child: Stack(fit: StackFit.expand, children: [
+              if (widget.room == 'living')
+                Room(
+                  theme: widget.theme,
+                  onPlay: widget.onPlay,
+                  onNote: widget.onNote,
+                  onDate: widget.onDate,
+                )
+              else
+                Semantics(
+                  label: widget.room == 'bedroom'
+                      ? 'Our cozy bedroom'
+                      : 'Our sunny garden',
+                  image: true,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(28),
+                    child: CustomPaint(
+                      painter: ExtraRoomPainter(widget.room, widget.theme),
+                    ),
+                  ),
                 ),
-              ),
-            ),
-          if (room == 'bedroom' && bedroomFrames != null)
-            Positioned.fill(
-              child: Align(
-                alignment: const Alignment(-.38, -.83),
-                child: FractionallySizedBox(
-                  widthFactor: .48,
-                  heightFactor: .25,
-                  child: bedroomFrames,
+              if (widget.room == 'bedroom' && widget.bedroomFrames != null)
+                Align(
+                  alignment: const Alignment(-.38, -.83),
+                  child: FractionallySizedBox(
+                    widthFactor: .48,
+                    heightFactor: .25,
+                    child: widget.bedroomFrames,
+                  ),
                 ),
-              ),
-            ),
-          if (petKind != null)
-            Positioned(
-              left: 16,
-              bottom: 6,
-              child: SizedBox(
-                width: 78,
-                height: 83,
-                child: PetPortrait(kind: petKind!, accessory: accessory),
-              ),
-            ),
-        ],
+              if (widget.petKind != null)
+                Positioned(
+                  left: (_position.x * w - petW / 2)
+                      .clamp(0.0, w - petW)
+                      .toDouble(),
+                  top: (_position.y * h - petH).clamp(0.0, h - petH).toDouble(),
+                  width: petW,
+                  height: petH,
+                  child: Semantics(
+                    button: true,
+                    label: 'Call our ${widget.petKind}',
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: _petTapped,
+                      child: Transform.translate(
+                        offset:
+                            Offset(0, _walking ? math.sin(_stepPhase) * 3 : 0),
+                        child: Transform.flip(
+                          flipX: _facingLeft,
+                          child: Transform.rotate(
+                            angle: _walking ? math.sin(_stepPhase) * .045 : 0,
+                            child: CustomPaint(
+                              painter: PetPainter(widget.petKind!, _happy,
+                                  widget.accessory, _walking ? _stepPhase : 0),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ]),
+          );
+        }),
       );
 }
 
@@ -108,10 +262,12 @@ class _PetPortraitState extends State<PetPortrait> {
 }
 
 class PetPainter extends CustomPainter {
-  PetPainter(this.kind, this.happy, [this.accessory = 'none']);
+  PetPainter(this.kind, this.happy,
+      [this.accessory = 'none', this.walkPhase = 0]);
   final String accessory;
   final String kind;
   final bool happy;
+  final double walkPhase;
   @override
   void paint(Canvas c, Size s) {
     c.save();
@@ -145,8 +301,9 @@ class PetPainter extends CustomPainter {
     );
     p.style = PaintingStyle.fill;
     oval(29, 51, 62, 55, fur);
-    oval(35, 94, 22, 14, fur);
-    oval(66, 94, 22, 14, fur);
+    final stride = math.sin(walkPhase) * 5;
+    oval(35 + stride, 94 - stride.abs() * .25, 22, 14, fur);
+    oval(66 - stride, 94 - stride.abs() * .25, 22, 14, fur);
     if (kind == 'cat') {
       path([
         const Offset(27, 43),
@@ -253,7 +410,10 @@ class PetPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(PetPainter old) =>
-      old.kind != kind || old.happy != happy || old.accessory != accessory;
+      old.kind != kind ||
+      old.happy != happy ||
+      old.accessory != accessory ||
+      old.walkPhase != walkPhase;
 }
 
 class ExtraRoomPainter extends CustomPainter {

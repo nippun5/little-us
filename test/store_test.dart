@@ -8,7 +8,8 @@ void main() {
   late AppStore store;
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
-    store = AppStore(await SharedPreferences.getInstance(), fridgeBridge: FakeFridge());
+    store = AppStore(await SharedPreferences.getInstance(),
+        fridgeBridge: FakeFridge());
     await store.startDemo();
   });
   tearDown(() => store.dispose());
@@ -45,7 +46,8 @@ void main() {
   test('demo notes and room survive reopening, deletion clears them', () async {
     await store.addNote('Remember this');
     await store.decorate('mint');
-    final next = AppStore(await SharedPreferences.getInstance(), fridgeBridge: FakeFridge());
+    final next = AppStore(await SharedPreferences.getInstance(),
+        fridgeBridge: FakeFridge());
     await next.startDemo();
     expect(next.notes.first['body'], 'Remember this');
     expect(next.theme, 'mint');

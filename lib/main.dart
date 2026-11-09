@@ -11,7 +11,7 @@ import 'v3_features.dart';
 import 'garage_scene.dart';
 import 'garage_panel.dart';
 import 'adventures/avatar_creator_screen.dart';
-import 'adventures/sunset_beach_screen.dart';
+import 'adventures/road_trip_screen.dart';
 
 const ink = Color(0xFF443747),
     muted = Color(0xFF817580),
@@ -602,7 +602,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
           OutlinedButton.icon(
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute<void>(
-                builder: (_) => SunsetBeachScreen(store: s),
+                builder: (_) => RoadTripScreen(store: s),
               ),
             ),
             icon: const Icon(Icons.beach_access_rounded),
