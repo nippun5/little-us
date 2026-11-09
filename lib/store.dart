@@ -8,6 +8,7 @@ import 'models.dart';
 import 'fridge_widget.dart';
 import 'accessories.dart';
 import 'garage_catalog.dart';
+import 'adventures/beach_activity_journal.dart';
 
 class AppStore extends ChangeNotifier {
   AppStore(this.prefs, {this.client, FridgeBridge? fridgeBridge})
@@ -634,11 +635,13 @@ class AppStore extends ChangeNotifier {
       await prefs.remove('fridge_pin_demo');
       await prefs.remove('room_demo');
       await prefs.remove('demo_state');
+      await BeachActivityJournal.clear(prefs, widgetScope);
       await prefs.remove('little_us_avatar_demo_a_v1');
       await prefs.remove('little_us_avatar_demo_b_v1');
       await signOut();
     } else {
       await _deleteHomeWithPhotos(account: false);
+      await BeachActivityJournal.clear(prefs, widgetScope);
       await refresh();
     }
   }
@@ -649,6 +652,7 @@ class AppStore extends ChangeNotifier {
       return;
     }
     await _deleteHomeWithPhotos(account: true);
+    await BeachActivityJournal.clear(prefs, widgetScope);
     _generation++;
     home = null;
     notes = [];

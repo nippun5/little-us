@@ -31,7 +31,8 @@ void main() {
       ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'));
     await icons.load();
     SharedPreferences.setMockInitialValues({});
-    final store = AppStore(await SharedPreferences.getInstance(), fridgeBridge: FakeFridge());
+    final store = AppStore(await SharedPreferences.getInstance(),
+        fridgeBridge: FakeFridge());
     await store.startDemo();
     final boundary = GlobalKey();
     await tester.pumpWidget(
@@ -43,10 +44,9 @@ void main() {
     await tester.pumpAndSettle();
     Future<void> capture(String file) async {
       await tester.runAsync(() async {
-        final image =
-            await (boundary.currentContext!.findRenderObject()
-                    as RenderRepaintBoundary)
-                .toImage(pixelRatio: 2.5);
+        final image = await (boundary.currentContext!.findRenderObject()
+                as RenderRepaintBoundary)
+            .toImage(pixelRatio: 2.5);
         final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
         await File('store/$file').writeAsBytes(bytes!.buffer.asUint8List());
         image.dispose();

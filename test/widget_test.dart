@@ -12,7 +12,8 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     SharedPreferences.setMockInitialValues({});
-    final store = AppStore(await SharedPreferences.getInstance(), fridgeBridge: FakeFridge());
+    final store = AppStore(await SharedPreferences.getInstance(),
+        fridgeBridge: FakeFridge());
     await store.startDemo();
     await tester.pumpWidget(LittleUs(store: store));
     await tester.pumpAndSettle();

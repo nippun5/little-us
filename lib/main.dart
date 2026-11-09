@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'models.dart';
 import 'store.dart';
+import 'game/round_score.dart';
 import 'room.dart';
 import 'room_scenes.dart';
 import 'v2_features.dart';
@@ -11,7 +12,7 @@ import 'v3_features.dart';
 import 'garage_scene.dart';
 import 'garage_panel.dart';
 import 'adventures/avatar_creator_screen.dart';
-import 'adventures/sunset_beach_screen.dart';
+import 'adventures/road_trip_screen.dart';
 
 const ink = Color(0xFF443747),
     muted = Color(0xFF817580),
@@ -602,7 +603,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
           OutlinedButton.icon(
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute<void>(
-                builder: (_) => SunsetBeachScreen(store: s),
+                builder: (_) => RoadTripScreen(store: s),
               ),
             ),
             icon: const Icon(Icons.beach_access_rounded),
@@ -1164,6 +1165,12 @@ class _RoundScreenState extends State<RoundScreen> {
                         'You earned 30 shared hearts for showing up together.',
                       ),
                       const SizedBox(height: 24),
+                      RoundScoreCard(
+                        round: done,
+                        yourName: s.myName,
+                        partnerName: s.partner,
+                      ),
+                      const SizedBox(height: 20),
                       ...List.generate(
                         3,
                         (i) => Padding(
@@ -1188,6 +1195,13 @@ class _RoundScreenState extends State<RoundScreen> {
                                 ),
                                 small(
                                   'They guessed: ${qs[i].options[done['partner_guesses'][i]]}',
+                                ),
+                                const SizedBox(height: 8),
+                                RoundQuestionScore(
+                                  round: done,
+                                  index: i,
+                                  yourName: s.myName,
+                                  partnerName: s.partner,
                                 ),
                               ],
                             ),

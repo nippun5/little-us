@@ -9,12 +9,11 @@ import 'avatar_model.dart';
 import 'avatar_preview.dart';
 import 'avatar_repository.dart';
 import 'beach_world.dart';
+import 'beach_activities.dart';
+import 'beach_activity_journal.dart';
 
-/// Milestone 2: a playable, single-device scene with the two saved avatars.
-///
-/// Your avatar is controlled by taps. The partner avatar is a *companion*, not
-/// a live multiplayer player. Activity spots open previews; full activities,
-/// postcards and rewards will be implemented in Milestone 3.
+/// Milestone 3C: interactive beach moments and locally saved progress.
+/// Partner avatar follows a script; no live multiplayer or shared rewards yet.
 class SunsetBeachScreen extends StatefulWidget {
   const SunsetBeachScreen({super.key, required this.store});
 
@@ -31,6 +30,8 @@ class _SunsetBeachScreenState extends State<SunsetBeachScreen>
   static const _coral = Color(0xFFC75E68);
 
   late final AvatarRepository _repository;
+  late final BeachActivityJournal _journal;
+  Map<String, BeachActivityRecord> _completed = {};
   late final Ticker _ticker;
   late final String? _homeScope;
 
@@ -51,6 +52,9 @@ class _SunsetBeachScreenState extends State<SunsetBeachScreen>
   void initState() {
     super.initState();
     _repository = AvatarRepository(widget.store);
+    _journal =
+        BeachActivityJournal(widget.store.prefs, widget.store.widgetScope!);
+    _completed = _journal.load();
     _homeScope = widget.store.widgetScope;
     _ticker = createTicker(_onFrame)..start();
     _loadAvatars();
@@ -144,47 +148,36 @@ class _SunsetBeachScreenState extends State<SunsetBeachScreen>
 
   void _goToSpot(BeachSpot spot) => _goTo(spot.approach, spot: spot);
 
-  void _showSpot(BeachSpot spot) {
-    final icon = _spotIcon(spot.id);
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (context) => SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 8, 24, 28),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(children: [
-                Icon(icon, color: _coral, size: 30),
-                const SizedBox(width: 12),
-                Expanded(
-                    child: Text(spot.name,
-                        style: const TextStyle(
-                            fontSize: 21, fontWeight: FontWeight.w800))),
-              ]),
-              const SizedBox(height: 12),
-              Text(spot.prompt,
-                  style: const TextStyle(fontSize: 16, height: 1.45)),
-              const SizedBox(height: 16),
-              const Text(
-                'You reached this interactive location! The activity itself '
-                'will arrive in Milestone 3. No hearts are spent or earned yet.',
-                style: TextStyle(color: Color(0xFF817580), fontSize: 13),
-              ),
-              const SizedBox(height: 18),
-              Align(
-                  alignment: Alignment.centerRight,
-                  child: FilledButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Keep exploring'))),
-            ],
-          ),
-        ),
-      ),
+  Future<void> _showSpot(BeachSpot spot) async {
+    if (!_sameHome || _avatars == null) return;
+    final result = await BeachActivities.open(
+      context,
+      id: spot.id,
+      pair: _avatars!,
+      myName: widget.store.myName,
+      partnerName: widget.store.partner,
+      previous: _completed[spot.id],
     );
+    if (!mounted || !_sameHome || result == null) return;
+    final record = BeachActivityRecord(
+      id: result.id,
+      summary: result.summary,
+      caption: result.caption,
+      completedAt: DateTime.now().toUtc().toIso8601String(),
+    );
+    try {
+      await _journal.save(record);
+      if (!mounted || !_sameHome) return;
+      setState(() => _completed = _journal.load());
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Saved on this device: ${result.summary}'),
+      ));
+    } catch (_) {
+      if (!mounted || !_sameHome) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Could not save beach progress on this device.'),
+      ));
+    }
   }
 
   static IconData _spotIcon(String id) => switch (id) {
@@ -300,7 +293,10 @@ class _SunsetBeachScreenState extends State<SunsetBeachScreen>
                   decoration: BoxDecoration(
                       color: const Color(0xC6333035),
                       borderRadius: BorderRadius.circular(7)),
-                  child: Text(spot.name,
+                  child: Text(
+                      _completed.containsKey(spot.id)
+                          ? '✓ ${spot.name}'
+                          : spot.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -499,18 +495,23 @@ class _SunsetBeachScreenState extends State<SunsetBeachScreen>
                                     key: ValueKey('beach_action_${spot.id}'),
                                     avatar: Icon(_spotIcon(spot.id),
                                         size: 17, color: _coral),
-                                    label: Text(spot.name),
+                                    label: Text(_completed.containsKey(spot.id)
+                                        ? '✓ ${spot.name}'
+                                        : spot.name),
                                     onPressed: () => _goToSpot(spot),
                                   )),
                           ],
                         )),
-                    const Padding(
-                      padding: EdgeInsets.fromLTRB(16, 0, 16, 12),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                       child: Text(
-                          'Preview activities only • No hearts or progress recorded yet',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                              color: Color(0xFF817580), fontSize: 11)),
+                        '${_completed.length}/4 beach activities completed',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Color(0xFF817580),
+                          fontSize: 11,
+                        ),
+                      ),
                     ),
                   ])),
     );
