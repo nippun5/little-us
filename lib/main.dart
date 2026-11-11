@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'models.dart';
 import 'store.dart';
 import 'game/round_score.dart';
+import 'game/doodle/doodle_screen.dart';
 import 'game/same_thought/same_thought_screen.dart';
 import 'room.dart';
 import 'room_scenes.dart';
@@ -740,6 +741,44 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
         ),
       );
   List<Widget> playPage() => [
+        // FINISH_MY_DOODLE_PLAY_CARD
+        card(
+          color: mint,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.draw_outlined, color: ink),
+                  SizedBox(width: 10),
+                  Expanded(
+                      child: Text('Finish My Doodle',
+                          style: TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.w800))),
+                ],
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                  'Start something silly. Your person finishes it later.'),
+              const SizedBox(height: 14),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: !s.paired && !s.demo
+                      ? null
+                      : () =>
+                          Navigator.of(context).push(MaterialPageRoute<void>(
+                            builder: (_) => FinishMyDoodleScreen(store: s),
+                          )),
+                  icon: const Icon(Icons.brush_outlined),
+                  label: const Text('Open Doodle'),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 18),
+
         small('LIVE CO-OP GAME'),
         const SizedBox(height: 8),
         heading('Same Thought.', size: 29),
