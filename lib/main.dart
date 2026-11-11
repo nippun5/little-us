@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'models.dart';
 import 'store.dart';
 import 'game/round_score.dart';
+import 'game/same_thought/same_thought_screen.dart';
 import 'room.dart';
 import 'room_scenes.dart';
 import 'v2_features.dart';
@@ -739,6 +740,54 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
         ),
       );
   List<Widget> playPage() => [
+        small('LIVE CO-OP GAME'),
+        const SizedBox(height: 8),
+        heading('Same Thought.', size: 29),
+        const SizedBox(height: 8),
+        const Text('One letter. Two minds. One team.',
+            style: TextStyle(color: muted)),
+        const SizedBox(height: 14),
+        card(
+          color: mint,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Row(children: [
+                Icon(Icons.psychology_alt_outlined, color: ink),
+                SizedBox(width: 9),
+                Expanded(
+                    child: Text('Can you guess the same word?',
+                        style: TextStyle(
+                            fontSize: 17, fontWeight: FontWeight.bold))),
+              ]),
+              const SizedBox(height: 10),
+              const Text(
+                  '5 rounds · 15 seconds each · Choose a category together'),
+              const SizedBox(height: 15),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: s.demo || !s.paired || s.client == null
+                      ? null
+                      : () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => SameThoughtScreen(store: s),
+                            ),
+                          ),
+                  icon: const Icon(Icons.play_arrow_rounded),
+                  label: const Text('Play Same Thought'),
+                ),
+              ),
+              if (s.demo || !s.paired)
+                const Padding(
+                  padding: EdgeInsets.only(top: 8),
+                  child: Text('Requires two paired accounts online.',
+                      style: TextStyle(color: muted, fontSize: 12)),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 28),
         small('YOUR DAILY DOSE OF US'),
         const SizedBox(height: 7),
         heading('Know me better.', size: 33),
