@@ -2,6 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:async';
+import 'package:flutter/foundation.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart'; // Generated locally by `flutterfire configure`.
+import 'push/push_manager.dart';
+import 'push/push_settings_card.dart';
+import 'push/push_destination.dart';
 import 'models.dart';
 import 'store.dart';
 import 'game/round_score.dart';
@@ -33,6 +40,23 @@ Future<void> main() async {
   }
   final store = AppStore(await SharedPreferences.getInstance(), client: client);
   await store.init();
+  // Partner push is opt-in and mobile-only; offline/web demos still work.
+  if (!kIsWeb && client != null &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+       defaultTargetPlatform == TargetPlatform.iOS)) {
+    try {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+      final push = PushManager(client: client, prefs: store.prefs, inDemo: () => store.demo);
+      PushManager.instance = push;
+      unawaited(push.start().catchError((Object error) {
+        debugPrint('Partner push unavailable: $error');
+      }));
+    } catch (error) {
+      debugPrint('Firebase setup incomplete; other features continue: $error');
+    }
+  }
   if (const bool.fromEnvironment('SCREENSHOT')) await store.startDemo();
   runApp(LittleUs(store: store));
 }
@@ -335,21 +359,50 @@ class HomeShell extends StatefulWidget {
 }
 
 class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
+  StreamSubscription<PushDestination>? _pushForeground;
+
+  void _onPartnerPush() {
+    if (!mounted || s.demo || !s.signedIn || s.home == null) return;
+    final manager = PushManager.instance;
+    final destination = manager?.pending.value;
+    if (destination == null) return;
+    manager!.pending.value = null;
+    setState(() => tab = tabForPushDestination(destination));
+    unawaited(s.refresh());
+  }
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    PushManager.instance?.pending.addListener(_onPartnerPush);
+    _pushForeground = PushManager.instance?.foreground.listen((destination) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(labelForPushDestination(destination)),
+        action: SnackBarAction(label: 'View', onPressed: () {
+          setState(() => tab = tabForPushDestination(destination));
+          unawaited(s.refresh());
+        }),
+      ));
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _onPartnerPush());
   }
 
   @override
   void dispose() {
+    PushManager.instance?.pending.removeListener(_onPartnerPush);
+    _pushForeground?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) s.refresh();
+    if (state == AppLifecycleState.resumed) {
+      s.refresh();
+      unawaited(PushManager.instance?.sync() ?? Future<void>.value());
+    }
   }
 
   int tab = const int.fromEnvironment('START_TAB');
@@ -1161,6 +1214,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
         if (!s.paired) inviteCard(),
         FridgeWidgetPanel(store: s),
         const SizedBox(height: 12),
+        PushSettingsCard(store: s),
         ListTile(
           leading: const Icon(Icons.calendar_month_outlined),
           title: const Text('Our next meeting'),

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart' show MemoryImage;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'push/push_manager.dart';
 import 'models.dart';
 import 'fridge_widget.dart';
 import 'accessories.dart';
@@ -314,6 +315,10 @@ class AppStore extends ChangeNotifier {
   }
 
   Future<void> startDemo() async {
+    // PUSH: stop delivery when entering demo mode from a connected account.
+    if (signedIn && PushManager.instance != null) {
+      await PushManager.instance!.beforeSignOut();
+    }
     _generation++;
     _clearPhotos();
     demo = true;
@@ -612,6 +617,10 @@ class AppStore extends ChangeNotifier {
 
   Future<void> signOut() async {
     _generation++;
+    // PUSH: stop delivery before Supabase signs out.
+    if (!demo && PushManager.instance != null) {
+      await PushManager.instance!.beforeSignOut();
+    }
     if (!demo) await client?.auth.signOut();
     demo = false;
     _clearPhotos();
@@ -651,6 +660,10 @@ class AppStore extends ChangeNotifier {
     if (demo) {
       await leave();
       return;
+    }
+    // PUSH: unregister before account deletion invalidates auth.
+    if (PushManager.instance != null) {
+      await PushManager.instance!.beforeSignOut();
     }
     await _deleteHomeWithPhotos(account: true);
     await BeachActivityJournal.clear(prefs, widgetScope);

@@ -1,0 +1,38 @@
+name: little_us
+description: A little home for your favorite person.
+publish_to: none
+version: 3.0.0+8
+environment:
+  # sdk: '>=3.9.0 <4.0.0'
+  sdk: '>=3.6.0 <4.0.0'
+dependencies:
+  audioplayers: 6.2.0
+  image_picker: 1.2.0
+  image: 4.5.4
+  flutter:
+    sdk: flutter
+  shared_preferences: ^2.5.3
+  supabase_flutter: ^2.15.4
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/
+    - assets/audio/
+    - assets/adventures/sunset_beach.jpg
+  fonts:
+    - family: Nunito
+      fonts:
+        - asset: assets/Nunito.ttf
+          weight: 400
+        - asset: assets/Nunito-Bold.ttf
+          weight: 700
+    - family: Lora
+      fonts:
+        - asset: assets/Lora.ttf
+          weight: 500
+        - asset: assets/Lora-SemiBold.ttf
+          weight: 600
